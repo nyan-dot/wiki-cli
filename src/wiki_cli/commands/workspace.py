@@ -12,6 +12,10 @@ def init_command() -> None:
     print("Workspace directories are ready.")
 
 
-def register_init_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    init_parser = subparsers.add_parser("init", help="Create required workspace directories.")
+def register_init_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    init_parser = subparsers.add_parser(
+        "init", help="Create required workspace directories."
+    )
     init_parser.set_defaults(func=lambda _args: init_command())

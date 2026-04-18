@@ -19,9 +19,7 @@ def lint_wiki_command(_args: argparse.Namespace) -> None:
     for finding in findings:
         print(f"{finding.level.upper()}: {finding.path.as_posix()} - {finding.message}")
 
-    print(
-        f"Lint finished with {len(errors)} error(s) and {len(warnings)} warning(s)."
-    )
+    print(f"Lint finished with {len(errors)} error(s) and {len(warnings)} warning(s).")
 
     log_activity(
         "lint_completed",

@@ -13,7 +13,9 @@ from wiki_cli.commands.maintenance import build_index_command, list_pages_comman
 from .support import read_machine_log, seed_clean_workspace, seed_index_and_log
 
 
-def test_seed_person_creates_page_updates_index_and_logs(isolated_workspace: Path) -> None:
+def test_seed_person_creates_page_updates_index_and_logs(
+    isolated_workspace: Path,
+) -> None:
     paths.ensure_workspace()
     seed_index_and_log(isolated_workspace)
 
@@ -31,7 +33,10 @@ def test_seed_person_creates_page_updates_index_and_logs(isolated_workspace: Pat
     log_text = (isolated_workspace / "wiki" / "log.md").read_text(encoding="utf-8")
 
     assert 'title: "Augustine"' in person_text
-    assert 'description: "Seed person page for Augustine and their relevance to the current cluster."' in person_text
+    assert (
+        'description: "Seed person page for Augustine and their relevance to the current cluster."'
+        in person_text
+    )
     assert "type: person" in person_text
     assert "## Why This Person Matters" in person_text
     assert (
@@ -94,7 +99,9 @@ def test_build_index_command_writes_machine_log(isolated_workspace: Path) -> Non
     assert rebuilt["path"] == "wiki/index.md"
 
 
-def test_main_logs_failed_command(isolated_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_logs_failed_command(
+    isolated_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     paths.ensure_workspace()
     seed_index_and_log(isolated_workspace)
     monkeypatch.setattr(sys, "argv", ["main.py", "seed-note", "missing-slug"])

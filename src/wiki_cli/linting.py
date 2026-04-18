@@ -11,7 +11,9 @@ from .models import LintFinding
 from .utils import frontmatter_list, normalize_tag, parse_frontmatter
 
 
-def add_finding(findings: list[LintFinding], level: str, path: Path, message: str) -> None:
+def add_finding(
+    findings: list[LintFinding], level: str, path: Path, message: str
+) -> None:
     findings.append(LintFinding(level=level, path=path, message=message))
 
 
@@ -66,7 +68,9 @@ def lint_wiki() -> list[LintFinding]:
         sources = frontmatter_list(frontmatter, "sources")
 
         if not title:
-            add_finding(findings, "error", relative_path, "Missing `title` in frontmatter.")
+            add_finding(
+                findings, "error", relative_path, "Missing `title` in frontmatter."
+            )
         if page_type != expected_type:
             add_finding(
                 findings,

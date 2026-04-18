@@ -117,8 +117,14 @@ def append_log_entry(entry: SepEntry) -> None:
         )
 
     timestamp = datetime.now().date().isoformat()
-    source_md = (paths.RAW_ROOT / entry.slug / "source.md").relative_to(paths.ROOT).as_posix()
-    note_md = (paths.SOURCE_NOTES_ROOT / f"{entry.slug}.md").relative_to(paths.ROOT).as_posix()
+    source_md = (
+        (paths.RAW_ROOT / entry.slug / "source.md").relative_to(paths.ROOT).as_posix()
+    )
+    note_md = (
+        (paths.SOURCE_NOTES_ROOT / f"{entry.slug}.md")
+        .relative_to(paths.ROOT)
+        .as_posix()
+    )
     entry_block = render_ingest_log_entry(
         entry,
         timestamp=timestamp,
@@ -137,7 +143,9 @@ def append_person_log_entry(slug: str, title: str) -> None:
         )
 
     timestamp = datetime.now().date().isoformat()
-    page_md = (paths.WIKI_ROOT / "people" / f"{slug}.md").relative_to(paths.ROOT).as_posix()
+    page_md = (
+        (paths.WIKI_ROOT / "people" / f"{slug}.md").relative_to(paths.ROOT).as_posix()
+    )
     entry_block = render_person_log_entry(
         slug=slug,
         title=title,

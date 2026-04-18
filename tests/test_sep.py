@@ -6,7 +6,10 @@ from wiki_cli.sep import convert_sep_html_to_markdown, parse_sep_entry, slugify
 
 
 def test_slugify_normalizes_text() -> None:
-    assert slugify(" Free Will & Moral Responsibility ") == "free-will-moral-responsibility"
+    assert (
+        slugify(" Free Will & Moral Responsibility ")
+        == "free-will-moral-responsibility"
+    )
     assert slugify("!!!") == "sep-entry"
 
 
@@ -39,7 +42,10 @@ def test_parse_sep_entry_reads_meta_and_pubinfo() -> None:
     assert entry.title == "Free Will"
     assert entry.authors == ["O窶僂onnor, Timothy", "Franklin, Christopher"]
     assert entry.first_published == "2002/01/07"
-    assert entry.pubinfo == "First published Mon Jan 7, 2002; substantive revision Thu Nov 3, 2022"
+    assert (
+        entry.pubinfo
+        == "First published Mon Jan 7, 2002; substantive revision Thu Nov 3, 2022"
+    )
 
 
 def test_parse_sep_entry_falls_back_to_title_and_override_slug() -> None:
@@ -104,7 +110,9 @@ def test_convert_sep_html_to_markdown_trims_sep_noise_but_keeps_latex() -> None:
     assert "- [agency](https://plato.stanford.edu/entries/agency/)" in markdown
 
 
-def test_convert_sep_html_to_markdown_rewrites_same_entry_links_to_local_anchors() -> None:
+def test_convert_sep_html_to_markdown_rewrites_same_entry_links_to_local_anchors() -> (
+    None
+):
     article_html = textwrap.dedent(
         """
         <p>See <a href="#target">Section 2</a> and
@@ -124,8 +132,7 @@ def test_convert_sep_html_to_markdown_rewrites_same_entry_links_to_local_anchors
     assert "[Section 2](#2-target-section)" in markdown
     assert "[deep dive](#21-deep-dive)" in markdown
     assert (
-        "[other](https://plato.stanford.edu/entries/other-entry/#elsewhere)"
-        in markdown
+        "[other](https://plato.stanford.edu/entries/other-entry/#elsewhere)" in markdown
     )
 
 

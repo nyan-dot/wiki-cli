@@ -8,7 +8,9 @@ from wiki_cli.indexing import build_index
 from .support import write_text
 
 
-def test_build_index_uses_frontmatter_descriptions_and_titles(isolated_workspace: Path) -> None:
+def test_build_index_uses_frontmatter_descriptions_and_titles(
+    isolated_workspace: Path,
+) -> None:
     paths.ensure_workspace()
     write_text(
         isolated_workspace / "wiki" / "sources" / "zeta.md",
@@ -54,6 +56,8 @@ def test_build_index_uses_frontmatter_descriptions_and_titles(isolated_workspace
     build_index()
     updated = (isolated_workspace / "wiki" / "index.md").read_text(encoding="utf-8")
 
-    assert updated.index("[[sources/alpha|Alpha]]") < updated.index("[[sources/zeta|Zeta]]")
+    assert updated.index("[[sources/alpha|Alpha]]") < updated.index(
+        "[[sources/zeta|Zeta]]"
+    )
     assert "- [[sources/alpha|Alpha]] - Earlier source note." in updated
     assert "- [[sources/zeta|Zeta]] - Later source note." in updated

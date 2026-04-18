@@ -29,4 +29,7 @@ def test_parse_frontmatter_parses_lists_and_quotes() -> None:
     assert frontmatter["type"] == "question"
     assert frontmatter["description"] == "Sample question."
     assert frontmatter["tags"] == ["free-will", "comparison"]
-    assert frontmatter["sources"] == ["[[sources/freewill]]", "[[sources/compatibilism]]"]
+    assert frontmatter["sources"] == [
+        "[[sources/freewill]]",
+        "[[sources/compatibilism]]",
+    ]

@@ -22,6 +22,20 @@ Run the test suite:
 uv run --extra dev pytest
 ```
 
+Run lint checks:
+
+```bash
+uv run --extra dev ruff check .
+uv run --extra dev ruff format --check .
+```
+
+Apply auto-fixable lint changes:
+
+```bash
+uv run --extra dev ruff check . --fix
+uv run --extra dev ruff format .
+```
+
 Run a quick compile check:
 
 ```bash

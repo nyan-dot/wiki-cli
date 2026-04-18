@@ -73,7 +73,7 @@ def parse_frontmatter(text: str) -> dict[str, object]:
                 current_list_key = key
             continue
 
-        list_match = re.match(r'^\s*-\s*(.*)$', line)
+        list_match = re.match(r"^\s*-\s*(.*)$", line)
         if list_match and current_list_key:
             values = frontmatter.setdefault(current_list_key, [])
             if isinstance(values, list):

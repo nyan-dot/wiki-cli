@@ -19,6 +19,7 @@ classifiers = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.4,<9",
+  "ruff",
 ]
 
 [project.scripts]
@@ -32,3 +33,13 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py314"
+src = ["src", "tests"]
+extend-exclude = [
+  "src/*.egg-info",
+]
+
+[tool.ruff.lint]
+fixable = ["ALL"]

@@ -112,7 +112,9 @@ def render_ingest_log_entry(
 """
 
 
-def render_person_log_entry(*, slug: str, title: str, timestamp: str, page_md: str) -> str:
+def render_person_log_entry(
+    *, slug: str, title: str, timestamp: str, page_md: str
+) -> str:
     del slug
     return f"""
 ## [{timestamp}] seed | Person | {title}

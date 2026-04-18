@@ -19,7 +19,9 @@ def test_lint_wiki_accepts_clean_minimal_workspace(isolated_workspace: Path) -> 
     assert lint_wiki() == []
 
 
-def test_lint_wiki_warns_when_question_has_only_one_source(isolated_workspace: Path) -> None:
+def test_lint_wiki_warns_when_question_has_only_one_source(
+    isolated_workspace: Path,
+) -> None:
     seed_clean_workspace(
         isolated_workspace,
         question_sources=["[[sources/test-entry]]"],
