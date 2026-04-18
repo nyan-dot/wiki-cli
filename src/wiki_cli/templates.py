@@ -6,6 +6,13 @@ from .models import SourceEntry
 from .utils import escape_quotes
 
 
+SOURCE_TYPE_LABELS = {
+    "sep": "SEP",
+    "arxiv": "arXiv",
+    "lesswrong": "LessWrong",
+}
+
+
 def render_source_note(
     entry: SourceEntry,
     *,
@@ -20,15 +27,17 @@ def render_source_note(
     primary_source_path: str | None = None,
     source_manifest_path: str | None = None,
 ) -> str:
-    source_type_label = {"sep": "SEP", "arxiv": "arXiv"}.get(
-        entry.source_type, entry.source_type
-    )
+    source_type_label = SOURCE_TYPE_LABELS.get(entry.source_type, entry.source_type)
     source_page_label = (
-        "Raw HTML" if entry.source_type == "sep" else "Abstract page HTML"
+        "Abstract page HTML" if entry.source_type == "arxiv" else "Raw HTML"
     )
     extra_snapshot_lines: list[str] = []
     if entry.canonical_id:
-        canonical_id_label = "SEP slug" if entry.source_type == "sep" else "arXiv ID"
+        canonical_id_label = {
+            "sep": "SEP slug",
+            "arxiv": "arXiv ID",
+            "lesswrong": "LessWrong post ID",
+        }.get(entry.source_type, "Canonical ID")
         extra_snapshot_lines.append(f"- {canonical_id_label}: {entry.canonical_id}")
     if source_archive_path:
         extra_snapshot_lines.append(
@@ -131,9 +140,7 @@ def render_ingest_log_entry(
     source_md: str,
     note_md: str,
 ) -> str:
-    source_type_label = {"sep": "SEP", "arxiv": "arXiv"}.get(
-        entry.source_type, entry.source_type
-    )
+    source_type_label = SOURCE_TYPE_LABELS.get(entry.source_type, entry.source_type)
     return f"""
 ## [{timestamp}] ingest | {entry.title}
 

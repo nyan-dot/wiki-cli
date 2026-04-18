@@ -63,6 +63,7 @@ Once installed, run the CLI inside a separate content repository:
 ```bash
 wiki init
 wiki import-sep https://plato.stanford.edu/entries/freewill/
+wiki import-lesswrong https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens
 wiki import-arxiv-src https://arxiv.org/src/1706.03762
 wiki build-index
 wiki lint-wiki
@@ -80,7 +81,25 @@ plain Markdown plus source artifacts.
 Current source ingest support includes:
 
 - SEP entries via `wiki import-sep`
+- LessWrong posts via `wiki import-lesswrong`
 - arXiv source bundles via `wiki import-arxiv-src`
+
+Markdown conversion is split into a small shared HTML-to-Markdown parser plus
+source-specific cleanup:
+
+- SEP and LessWrong both use a common parser for headings, lists, blockquotes,
+  code blocks, images, links, and basic tables
+- SEP then rewrites same-entry links and trims SEP-specific boilerplate such as
+  the table of contents and tail resource sections
+- LessWrong then normalizes inline footnote references, preserves multiline
+  footnotes and footnote tables, and keeps common author-side formatting such as
+  bracketed `Edit` blocks
+
+LessWrong imports store immutable post artifacts under `raw/lesswrong/<slug>/`:
+
+- `meta.json` for normalized metadata including the LessWrong post ID
+- `source.html` for the fetched post HTML
+- `source.md` as generated reading Markdown intended for human reading and LLM use
 
 `import-arxiv-src` stores immutable paper artifacts under `raw/arxiv/<slug>/`:
 

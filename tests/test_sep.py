@@ -154,3 +154,84 @@ def test_markdown_heading_anchor_deduplicates_same_titles() -> None:
 
     assert "[first](#notes)" in markdown
     assert "[second](#notes-1)" in markdown
+
+
+def test_convert_sep_html_to_markdown_preserves_nested_list_indentation() -> None:
+    article_html = textwrap.dedent(
+        """
+        <ul>
+          <li>Outer
+            <ul>
+              <li>Inner</li>
+            </ul>
+          </li>
+        </ul>
+        """
+    )
+
+    markdown = convert_sep_html_to_markdown(
+        article_html,
+        "https://plato.stanford.edu/entries/test-entry/",
+    )
+
+    assert "- Outer" in markdown
+    assert "  - Inner" in markdown
+
+
+def test_convert_sep_html_to_markdown_removes_nested_sep_toc_block() -> None:
+    article_html = textwrap.dedent(
+        """
+        <p>Overview paragraph.</p>
+        <ul>
+          <li><a href="#one">1. One</a>
+            <ul>
+              <li><a href="#one-a">1.1 One A</a></li>
+            </ul>
+          </li>
+          <li><a href="#two">2. Two</a></li>
+          <li><a href="#three">3. Three</a></li>
+        </ul>
+        <hr>
+        <h2 id="one">1. One</h2>
+        <h3 id="one-a">1.1 One A</h3>
+        <h2 id="two">2. Two</h2>
+        <h2 id="three">3. Three</h2>
+        """
+    )
+
+    markdown = convert_sep_html_to_markdown(
+        article_html,
+        "https://plato.stanford.edu/entries/test-entry/",
+    )
+
+    assert "[1. One](#1-one)" not in markdown
+    assert "[1.1 One A](#11-one-a)" not in markdown
+    assert sum(1 for line in markdown.splitlines() if line.startswith("## ")) == 3
+
+
+def test_convert_sep_html_to_markdown_formats_blockquotes_without_empty_markers() -> (
+    None
+):
+    article_html = textwrap.dedent(
+        """
+        <p>Lead in.</p>
+        <blockquote>
+          <p>
+            If determinism is true, then our acts are the consequences of the
+            laws of nature and events in the remote past.
+          </p>
+        </blockquote>
+        <p>After quote.</p>
+        """
+    )
+
+    markdown = convert_sep_html_to_markdown(
+        article_html,
+        "https://plato.stanford.edu/entries/test-entry/",
+    )
+
+    assert "\n>\n" not in markdown
+    assert (
+        "> If determinism is true, then our acts are the consequences of the laws "
+        "of nature and events in the remote past."
+    ) in markdown

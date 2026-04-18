@@ -4,6 +4,7 @@ import html
 import re
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 
@@ -16,6 +17,73 @@ SEP_TAIL_SECTIONS_TO_DROP = {
     "Other Internet Resources",
 }
 MARKDOWN_LINK_RE = re.compile(r"\[(?P<label>[^\]]+)\]\((?P<url>[^)\s]+)\)")
+
+
+@dataclass
+class PendingLink:
+    href: str
+    parts: list[str] = field(default_factory=list)
+
+
+@dataclass
+class MarkdownTableBuffer:
+    depth: int = 0
+    rows: list[list[str]] | None = None
+    current_row: list[str] | None = None
+    current_cell_parts: list[str] | None = None
+
+    def start_table(self) -> None:
+        if self.depth == 0:
+            self.rows = []
+            self.current_row = None
+            self.current_cell_parts = None
+        self.depth += 1
+
+    def end_table(self) -> str | None:
+        if self.depth == 0:
+            return None
+
+        self.depth -= 1
+        if self.depth != 0:
+            return None
+
+        rendered = render_markdown_table(self.rows or [])
+        self.rows = None
+        self.current_row = None
+        self.current_cell_parts = None
+        return rendered
+
+    def start_row(self) -> None:
+        if self.inside_table():
+            self.current_row = []
+
+    def start_cell(self) -> None:
+        if self.inside_table():
+            self.current_cell_parts = []
+
+    def append_to_cell(self, text: str) -> None:
+        if self.current_cell_parts is not None:
+            self.current_cell_parts.append(text)
+
+    def finish_cell(self) -> None:
+        if self.current_row is None or self.current_cell_parts is None:
+            return
+        text = normalize_inline("".join(self.current_cell_parts))
+        self.current_row.append(text)
+        self.current_cell_parts = None
+
+    def finish_row(self) -> None:
+        if self.rows is None or self.current_row is None:
+            return
+        if any(cell.strip() for cell in self.current_row):
+            self.rows.append(self.current_row)
+        self.current_row = None
+
+    def inside_table(self) -> bool:
+        return self.depth > 0
+
+    def inside_cell(self) -> bool:
+        return self.current_cell_parts is not None
 
 
 class MetaParser(HTMLParser):
@@ -67,15 +135,38 @@ class MarkdownArticleParser(HTMLParser):
         super().__init__()
         self.base_url = base_url
         self.parts: list[str] = []
-        self.link_stack: list[dict[str, str | list[str]]] = []
+        self.link_stack: list[PendingLink] = []
         self.skip_depth = 0
         self.list_depth = 0
+        self.blockquote_depth = 0
+        self._blockquote_just_started = 0
         self.in_pre = False
         self.in_inline_code = False
+        self.table_buffer = MarkdownTableBuffer()
         self.heading_ids_to_anchors: dict[str, str] = {}
         self._heading_anchor_counts: dict[str, int] = {}
         self._current_heading_id: str | None = None
         self._current_heading_parts: list[str] | None = None
+        self._start_tag_handlers = {
+            "p": self._start_paragraph,
+            "blockquote": self._start_blockquote,
+            "br": self._emit_line_break,
+            "hr": self._emit_horizontal_rule,
+            "figure": self._start_figure,
+            "pre": self._start_preformatted,
+            "code": self._start_code,
+        }
+        self._start_tag_attr_handlers = {
+            "a": self._start_link,
+            "img": self._emit_image,
+        }
+        self._end_tag_handlers = {
+            "blockquote": self._end_blockquote,
+            "figure": self._end_figure,
+            "pre": self._end_preformatted,
+            "code": self._end_code,
+            "a": self._close_link,
+        }
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in self.SKIP_TAGS:
@@ -88,36 +179,21 @@ class MarkdownArticleParser(HTMLParser):
         attr_map = {key: value or "" for key, value in attrs}
 
         if tag in self.HEADING_LEVELS:
-            level = self.HEADING_LEVELS[tag]
-            self._current_heading_id = attr_map.get("id", "").strip() or None
-            self._current_heading_parts = []
-            self._emit(f"\n\n{'#' * level} ")
+            self._start_heading(tag, attr_map)
         elif tag == "p":
-            self._emit("\n\n")
+            self._dispatch_start_tag(tag)
         elif tag in {"ul", "ol"}:
-            self.list_depth += 1
-            self._emit("\n")
+            self._start_list()
         elif tag == "li":
-            indent = "  " * max(self.list_depth - 1, 0)
-            self._emit(f"\n{indent}- ")
-        elif tag == "blockquote":
-            self._emit("\n\n> ")
-        elif tag == "br":
-            self._emit("\n")
-        elif tag == "hr":
-            self._emit("\n\n---\n\n")
-        elif tag == "pre":
-            self.in_pre = True
-            self._emit("\n\n```\n")
-        elif tag == "code":
-            if self.in_pre:
-                return
-            self.in_inline_code = True
-            self._emit("`")
-        elif tag == "a":
-            self.link_stack.append(
-                {"href": attr_map.get("href", "").strip(), "parts": []}
-            )
+            self._start_list_item()
+        elif tag == "table":
+            self._start_table()
+        elif tag == "tr" and self._inside_table():
+            self.table_buffer.start_row()
+        elif tag in {"td", "th"} and self._inside_table():
+            self.table_buffer.start_cell()
+        else:
+            self._dispatch_start_tag(tag, attr_map)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in self.SKIP_TAGS:
@@ -128,29 +204,17 @@ class MarkdownArticleParser(HTMLParser):
             return
 
         if tag in {"ul", "ol"}:
-            self.list_depth = max(self.list_depth - 1, 0)
-            self._emit("\n")
+            self._end_list()
         elif tag in self.HEADING_LEVELS:
-            self._finish_heading()
-            self._emit("\n")
-        elif tag == "blockquote":
-            self._emit("\n")
-        elif tag == "pre":
-            self._emit("\n```\n")
-            self.in_pre = False
-        elif tag == "code" and self.in_inline_code:
-            self._emit("`")
-            self.in_inline_code = False
-        elif tag == "a" and self.link_stack:
-            link = self.link_stack.pop()
-            text = normalize_inline("".join(link["parts"]))
-            href = str(link["href"]).strip()
-            if text:
-                if href:
-                    absolute_href = urllib.parse.urljoin(self.base_url, href)
-                    self._emit(f"[{text}]({absolute_href})")
-                else:
-                    self._emit(text)
+            self._end_heading()
+        elif tag in {"td", "th"} and self._inside_table():
+            self.table_buffer.finish_cell()
+        elif tag == "tr" and self._inside_table():
+            self.table_buffer.finish_row()
+        elif tag == "table" and self._inside_table():
+            self._end_table()
+        else:
+            self._dispatch_end_tag(tag)
 
     def handle_data(self, data: str) -> None:
         if self.skip_depth:
@@ -175,7 +239,7 @@ class MarkdownArticleParser(HTMLParser):
         cleaned: list[str] = []
         previous_blank = False
         for line in lines:
-            normalized = re.sub(r" +", " ", line).strip()
+            normalized = normalize_markdown_line(line)
             if not normalized:
                 if not previous_blank:
                     cleaned.append("")
@@ -188,9 +252,155 @@ class MarkdownArticleParser(HTMLParser):
 
     def _emit(self, text: str) -> None:
         if self.link_stack:
-            self.link_stack[-1]["parts"].append(text)
+            self.link_stack[-1].parts.append(text)
+        elif self._inside_table_cell():
+            self.table_buffer.append_to_cell(text)
         else:
             self.parts.append(text)
+
+    def _dispatch_start_tag(
+        self,
+        tag: str,
+        attr_map: dict[str, str] | None = None,
+    ) -> None:
+        handler = self._start_tag_handlers.get(tag)
+        if handler is not None:
+            handler()
+            return
+
+        if attr_map is None:
+            return
+
+        attr_handler = self._start_tag_attr_handlers.get(tag)
+        if attr_handler is not None:
+            attr_handler(attr_map)
+
+    def _dispatch_end_tag(self, tag: str) -> None:
+        handler = self._end_tag_handlers.get(tag)
+        if handler is not None:
+            handler()
+
+    def _start_paragraph(self) -> None:
+        if self._inside_table_cell():
+            if self.table_buffer.current_cell_parts:
+                self._emit("\n")
+            return
+
+        if self.blockquote_depth:
+            if self._blockquote_just_started:
+                self._blockquote_just_started -= 1
+            else:
+                self._emit("\n>\n> ")
+            return
+
+        self._emit("\n\n")
+
+    def _start_heading(self, tag: str, attr_map: dict[str, str]) -> None:
+        level = self.HEADING_LEVELS[tag]
+        self._current_heading_id = attr_map.get("id", "").strip() or None
+        self._current_heading_parts = []
+        self._emit(f"\n\n{'#' * level} ")
+
+    def _end_heading(self) -> None:
+        self._finish_heading()
+        self._emit("\n")
+
+    def _start_list(self) -> None:
+        self.list_depth += 1
+        self._emit("\n")
+
+    def _end_list(self) -> None:
+        self.list_depth = max(self.list_depth - 1, 0)
+        self._emit("\n")
+
+    def _start_list_item(self) -> None:
+        indent = "  " * max(self.list_depth - 1, 0)
+        self._emit(f"\n{indent}- ")
+
+    def _start_blockquote(self) -> None:
+        self.blockquote_depth += 1
+        self._blockquote_just_started += 1
+        self._emit("\n\n> ")
+
+    def _end_blockquote(self) -> None:
+        self.blockquote_depth = max(self.blockquote_depth - 1, 0)
+        if self.blockquote_depth == 0:
+            self._blockquote_just_started = 0
+        self._emit("\n")
+
+    def _emit_line_break(self) -> None:
+        if self.blockquote_depth:
+            self._emit("\n> ")
+        else:
+            self._emit("\n")
+
+    def _emit_horizontal_rule(self) -> None:
+        self._emit("\n\n---\n\n")
+
+    def _start_figure(self) -> None:
+        self._emit("\n\n")
+
+    def _end_figure(self) -> None:
+        self._emit("\n\n")
+
+    def _start_table(self) -> None:
+        if not self._inside_table():
+            self._emit("\n\n")
+        self.table_buffer.start_table()
+
+    def _end_table(self) -> None:
+        rendered = self.table_buffer.end_table()
+        if rendered is not None:
+            self._emit(rendered)
+            self._emit("\n\n")
+
+    def _start_preformatted(self) -> None:
+        self.in_pre = True
+        self._emit("\n\n```\n")
+
+    def _end_preformatted(self) -> None:
+        self._emit("\n```\n")
+        self.in_pre = False
+
+    def _start_code(self) -> None:
+        if self.in_pre:
+            return
+        self.in_inline_code = True
+        self._emit("`")
+
+    def _end_code(self) -> None:
+        if not self.in_inline_code:
+            return
+        self._emit("`")
+        self.in_inline_code = False
+
+    def _start_link(self, attr_map: dict[str, str]) -> None:
+        self.link_stack.append(PendingLink(href=attr_map.get("href", "").strip()))
+
+    def _emit_image(self, attr_map: dict[str, str]) -> None:
+        src = attr_map.get("src", "").strip()
+        if not src:
+            return
+        alt = normalize_inline(attr_map.get("alt", "")) or "Image"
+        absolute_src = urllib.parse.urljoin(self.base_url, src)
+        self._emit(f"![{alt}]({absolute_src})")
+
+    def _close_link(self) -> None:
+        if not self.link_stack:
+            return
+        link = self.link_stack.pop()
+        raw_text = "".join(link.parts)
+        text = normalize_inline(raw_text)
+        if not text:
+            return
+
+        prefix = " " if raw_text[:1].isspace() else ""
+        suffix = " " if raw_text[-1:].isspace() else ""
+        if link.href:
+            absolute_href = urllib.parse.urljoin(self.base_url, link.href)
+            self._emit(f"{prefix}[{text}]({absolute_href}){suffix}")
+        else:
+            self._emit(f"{prefix}{text}{suffix}")
 
     def _finish_heading(self) -> None:
         heading_text = normalize_inline("".join(self._current_heading_parts or []))
@@ -203,6 +413,59 @@ class MarkdownArticleParser(HTMLParser):
 
         self._current_heading_id = None
         self._current_heading_parts = None
+
+    def _inside_table(self) -> bool:
+        return self.table_buffer.inside_table()
+
+    def _inside_table_cell(self) -> bool:
+        return self.table_buffer.inside_cell()
+
+
+LIST_LINE_RE = re.compile(r"^(?P<indent>\s*)(?P<marker>(?:[-*+])|(?:\d+\.))\s+(?P<body>.*)$")
+
+
+def normalize_markdown_line(line: str) -> str:
+    if not line.strip():
+        return ""
+
+    list_match = LIST_LINE_RE.match(line)
+    if list_match:
+        indent = list_match.group("indent")
+        marker = list_match.group("marker")
+        body = re.sub(r" +", " ", list_match.group("body")).strip()
+        return f"{indent}{marker} {body}".rstrip()
+
+    if line.lstrip().startswith(">"):
+        stripped = line.lstrip()
+        quote_prefix = "> "
+        quote_body = stripped[1:].strip()
+        return f"{quote_prefix}{re.sub(r' +', ' ', quote_body)}".rstrip()
+
+    return re.sub(r" +", " ", line).strip()
+
+
+def is_markdown_link_list_item(line: str) -> bool:
+    match = LIST_LINE_RE.match(line)
+    if match is None:
+        return False
+    return match.group("body").lstrip().startswith("[")
+
+
+def render_markdown_table(rows: list[list[str]]) -> str:
+    if not rows:
+        return ""
+
+    max_columns = max(len(row) for row in rows)
+    normalized_rows = [row + [""] * (max_columns - len(row)) for row in rows]
+    header = normalized_rows[0]
+
+    lines = [
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join(["---"] * max_columns) + " |",
+    ]
+    for row in normalized_rows[1:]:
+        lines.append("| " + " | ".join(row) + " |")
+    return "\n".join(lines)
 
 
 def fetch_url(url: str) -> str:
@@ -354,15 +617,19 @@ def remove_sep_toc_block(lines: list[str]) -> list[str]:
     while candidate_end >= 0 and not lines[candidate_end].strip():
         candidate_end -= 1
 
-    if candidate_end < 0 or not lines[candidate_end].startswith("- ["):
+    if candidate_end < 0 or not is_markdown_link_list_item(lines[candidate_end]):
         return lines
 
     start = candidate_end
-    while start >= 0 and (not lines[start].strip() or lines[start].startswith("- [")):
+    while start >= 0 and (
+        not lines[start].strip() or is_markdown_link_list_item(lines[start])
+    ):
         start -= 1
     start += 1
 
-    bullet_count = sum(1 for line in lines[start:hr_index] if line.startswith("- ["))
+    bullet_count = sum(
+        1 for line in lines[start:hr_index] if is_markdown_link_list_item(line)
+    )
     if bullet_count < 3:
         return lines
 

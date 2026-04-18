@@ -14,10 +14,12 @@ def default_root() -> Path:
 ROOT = default_root()
 RAW_SEP_ROOT = ROOT / "raw" / "sep"
 RAW_ARXIV_ROOT = ROOT / "raw" / "arxiv"
+RAW_LESSWRONG_ROOT = ROOT / "raw" / "lesswrong"
 RAW_ROOT = RAW_SEP_ROOT
 RAW_SOURCE_ROOTS = {
     "sep": RAW_SEP_ROOT,
     "arxiv": RAW_ARXIV_ROOT,
+    "lesswrong": RAW_LESSWRONG_ROOT,
 }
 WIKI_ROOT = ROOT / "wiki"
 SOURCE_NOTES_ROOT = WIKI_ROOT / "sources"
@@ -42,6 +44,7 @@ def ensure_workspace() -> None:
     for path in [
         RAW_SEP_ROOT,
         RAW_ARXIV_ROOT,
+        RAW_LESSWRONG_ROOT,
         SOURCE_NOTES_ROOT,
         WIKI_ROOT / "concepts",
         WIKI_ROOT / "people",

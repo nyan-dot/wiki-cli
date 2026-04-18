@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
-from . import arxiv, paths, sep
+from . import arxiv, lesswrong, paths, sep
 from .indexing import build_index
 from .models import SourceEntry
 from .templates import (
@@ -30,6 +31,41 @@ def import_sep(url: str, slug: str | None, force: bool) -> SourceEntry:
     entry = sep.parse_sep_entry(url, page_html, slug)
     article_html = sep.extract_sep_article_html(page_html)
     source_markdown = sep.convert_sep_html_to_markdown(article_html, base_url=url)
+
+    entry_dir = paths.raw_root(entry.source_type) / entry.slug
+    if entry_dir.exists() and not force:
+        raise FileExistsError(
+            f"{entry_dir} already exists. Use --force to refresh the raw source files."
+        )
+
+    entry_dir.mkdir(parents=True, exist_ok=True)
+    write_text(entry_dir / "source.html", page_html, force=True)
+    write_text(entry_dir / "source.md", source_markdown, force=True)
+    write_text(
+        entry_dir / "meta.json",
+        json.dumps(asdict(entry), indent=2, ensure_ascii=False) + "\n",
+        force=True,
+    )
+
+    note_path = paths.SOURCE_NOTES_ROOT / f"{entry.slug}.md"
+    if not note_path.exists():
+        create_source_note(entry, force=False)
+    update_index(entry)
+    append_log_entry(entry)
+    return entry
+
+
+def import_lesswrong(url: str, slug: str | None, force: bool) -> SourceEntry:
+    paths.ensure_workspace()
+
+    normalized_url, _, _ = lesswrong.normalize_lesswrong_url(url)
+    page_html = lesswrong.fetch_url(normalized_url)
+    entry = lesswrong.parse_lesswrong_entry(normalized_url, page_html, slug)
+    article_html = lesswrong.extract_lesswrong_post_html(page_html)
+    source_markdown = lesswrong.convert_lesswrong_html_to_markdown(
+        article_html,
+        base_url=entry.url,
+    )
 
     entry_dir = paths.raw_root(entry.source_type) / entry.slug
     if entry_dir.exists() and not force:
@@ -138,14 +174,13 @@ def load_entry(slug: str, *, source_type: str | None = None) -> SourceEntry:
 def create_source_note(entry: SourceEntry, force: bool) -> Path:
     note_path = paths.SOURCE_NOTES_ROOT / f"{entry.slug}.md"
     raw_root = paths.raw_root(entry.source_type)
+    source_page_name = "abs.html" if entry.source_type == "arxiv" else "source.html"
     source_md_path = relative_markdown_path(
         note_path, raw_root / entry.slug / "source.md"
     )
     source_html_path = relative_markdown_path(
         note_path,
-        raw_root
-        / entry.slug
-        / ("source.html" if entry.source_type == "sep" else "abs.html"),
+        raw_root / entry.slug / source_page_name,
     )
     source_archive_path = (
         relative_markdown_path(
@@ -216,6 +251,9 @@ def append_log_entry(entry: SourceEntry) -> None:
             "wiki/log.md is missing. Run `wiki init` or restore the scaffold files."
         )
 
+    if ingest_log_entry_exists(log_path, entry):
+        return
+
     timestamp = datetime.now().date().isoformat()
     source_md = (
         (paths.raw_root(entry.source_type) / entry.slug / "source.md")
@@ -235,6 +273,33 @@ def append_log_entry(entry: SourceEntry) -> None:
     )
     with log_path.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(entry_block)
+
+
+def ingest_log_entry_exists(log_path: Path, entry: SourceEntry) -> bool:
+    log_text = log_path.read_text(encoding="utf-8")
+    source_type_label = ingest_source_type_label(entry)
+    pattern = re.compile(
+        r"^## \[[^\]]+\] ingest \| .*$\n(?P<body>(?:^(?!## ).*$\n?)*)",
+        re.MULTILINE,
+    )
+
+    for match in pattern.finditer(log_text):
+        body = match.group("body")
+        if (
+            f"- Source type: {source_type_label}" in body
+            and f"- URL: {entry.url}" in body
+        ):
+            return True
+
+    return False
+
+
+def ingest_source_type_label(entry: SourceEntry) -> str:
+    return {
+        "sep": "SEP",
+        "arxiv": "arXiv",
+        "lesswrong": "LessWrong",
+    }.get(entry.source_type, entry.source_type)
 
 
 def append_person_log_entry(slug: str, title: str) -> None:
