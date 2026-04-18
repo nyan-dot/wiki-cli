@@ -40,7 +40,7 @@ def build_index_text(records: list[PageRecord] | None = None) -> str:
         "# Wiki Index",
         "",
         "This file is generated from page frontmatter.",
-        "Run `python main.py build-index` after structural edits if it falls out of date.",
+        "Run `wiki build-index` after structural edits if it falls out of date.",
         "",
     ]
 
