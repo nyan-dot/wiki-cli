@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from .models import SepEntry
+from pathlib import Path
+
+from .models import SourceEntry
 from .utils import escape_quotes
 
 
 def render_source_note(
-    entry: SepEntry,
+    entry: SourceEntry,
     *,
     authors_line: str,
     published_line: str,
@@ -14,11 +16,37 @@ def render_source_note(
     source_md_path: str,
     source_html_path: str,
     authors_yaml: str,
+    source_archive_path: str | None = None,
+    primary_source_path: str | None = None,
+    source_manifest_path: str | None = None,
 ) -> str:
+    source_type_label = {"sep": "SEP", "arxiv": "arXiv"}.get(
+        entry.source_type, entry.source_type
+    )
+    source_page_label = (
+        "Raw HTML" if entry.source_type == "sep" else "Abstract page HTML"
+    )
+    extra_snapshot_lines: list[str] = []
+    if entry.canonical_id:
+        canonical_id_label = "SEP slug" if entry.source_type == "sep" else "arXiv ID"
+        extra_snapshot_lines.append(f"- {canonical_id_label}: {entry.canonical_id}")
+    if source_archive_path:
+        extra_snapshot_lines.append(
+            f"- Source archive: [{source_archive_path}]({source_archive_path})"
+        )
+    if source_manifest_path:
+        extra_snapshot_lines.append(
+            f"- Source manifest: [{source_manifest_path}]({source_manifest_path})"
+        )
+    if primary_source_path:
+        extra_snapshot_lines.append(
+            f"- Primary source candidate: [{primary_source_path}]({primary_source_path})"
+        )
+
     return f"""---
 title: "{escape_quotes(entry.title)}"
 type: source
-source_type: sep
+source_type: {entry.source_type}
 slug: {entry.slug}
 url: "{escape_quotes(entry.url)}"
 authors:
@@ -26,9 +54,9 @@ authors:
 first_published: "{escape_quotes(published_line)}"
 fetched_at: "{escape_quotes(entry.fetched_at)}"
 status: seed
-description: "SEP source note for {escape_quotes(entry.title)} and its role in the current cluster."
+description: "{source_type_label} source note for {escape_quotes(entry.title)} and its role in the current cluster."
 tags:
-  - "sep"
+  - "{entry.source_type}"
   - "{concept_slug}"
 ---
 
@@ -38,7 +66,8 @@ tags:
 - Authors: {authors_line}
 - Publication info: {pubinfo_line}
 - Raw markdown: [{source_md_path}]({source_md_path})
-- Raw HTML: [{source_html_path}]({source_html_path})
+- {source_page_label}: [{source_html_path}]({source_html_path})
+{"\n".join(extra_snapshot_lines)}
 
 ## Summary
 - Fill this in after reading the source or discussing it with the LLM.
@@ -96,19 +125,59 @@ tags:
 
 
 def render_ingest_log_entry(
-    entry: SepEntry,
+    entry: SourceEntry,
     *,
     timestamp: str,
     source_md: str,
     note_md: str,
 ) -> str:
+    source_type_label = {"sep": "SEP", "arxiv": "arXiv"}.get(
+        entry.source_type, entry.source_type
+    )
     return f"""
 ## [{timestamp}] ingest | {entry.title}
 
-- Source type: SEP
+- Source type: {source_type_label}
 - URL: {entry.url}
 - Raw markdown: {source_md}
 - Source note: {note_md}
+"""
+
+
+def render_arxiv_source_manifest(
+    entry: SourceEntry,
+    *,
+    source_markdown_name: str,
+    abstract_page_name: str,
+    source_archive_name: str,
+    extracted_files: list[Path],
+    primary_source_path: str | None,
+) -> str:
+    extracted_lines = [
+        f"- [{path.as_posix()}]({path.as_posix()})" for path in extracted_files
+    ]
+    primary_line = (
+        f"- Primary source candidate: [{primary_source_path}]({primary_source_path})"
+        if primary_source_path
+        else "- Primary source candidate: Could not determine one automatically."
+    )
+    abstract_block = entry.abstract or "No abstract metadata captured."
+
+    return f"""# {entry.title}
+
+## Source Snapshot
+- arXiv ID: {entry.canonical_id or "Unknown"}
+- Generated reading markdown: [{source_markdown_name}]({source_markdown_name})
+- Abstract page HTML: [{abstract_page_name}]({abstract_page_name})
+- Source archive: [{source_archive_name}]({source_archive_name})
+{primary_line}
+- Extracted file count: {len(extracted_files)}
+
+## Abstract
+{abstract_block}
+
+## Extracted File Inventory
+{"\n".join(extracted_lines) if extracted_lines else "- No extracted files were found."}
 """
 
 

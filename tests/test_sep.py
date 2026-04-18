@@ -46,6 +46,7 @@ def test_parse_sep_entry_reads_meta_and_pubinfo() -> None:
         entry.pubinfo
         == "First published Mon Jan 7, 2002; substantive revision Thu Nov 3, 2022"
     )
+    assert entry.source_type == "sep"
 
 
 def test_parse_sep_entry_falls_back_to_title_and_override_slug() -> None:
@@ -72,6 +73,7 @@ def test_parse_sep_entry_falls_back_to_title_and_override_slug() -> None:
     assert entry.slug == "custom-luck"
     assert entry.authors == []
     assert entry.first_published is None
+    assert entry.source_type == "sep"
 
 
 def test_convert_sep_html_to_markdown_trims_sep_noise_but_keeps_latex() -> None:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from wiki_cli import paths
 from wiki_cli.indexing import build_index
-from wiki_cli.models import SepEntry
+from wiki_cli.models import SourceEntry
 from wiki_cli.notes import append_log_entry, create_source_note
 
 
@@ -60,7 +60,8 @@ def seed_clean_workspace(root: Path, *, question_sources: list[str]) -> None:
     paths.ensure_workspace()
     seed_index_and_log(root)
 
-    entry = SepEntry(
+    entry = SourceEntry(
+        source_type="sep",
         slug="test-entry",
         title="Test Entry",
         url="https://example.invalid/test-entry",
@@ -70,7 +71,7 @@ def seed_clean_workspace(root: Path, *, question_sources: list[str]) -> None:
         fetched_at="2026-04-17T00:00:00+00:00",
     )
 
-    raw_entry_dir = paths.RAW_ROOT / entry.slug
+    raw_entry_dir = paths.raw_root(entry.source_type) / entry.slug
     raw_entry_dir.mkdir(parents=True, exist_ok=True)
     write_text(raw_entry_dir / "source.md", "# Test Entry\n")
     write_text(raw_entry_dir / "source.html", "<html></html>\n")

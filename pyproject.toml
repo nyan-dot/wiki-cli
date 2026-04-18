@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wiki-cli"
 version = "0.1.0"
-description = "CLI tools for maintaining an LLM-assisted philosophy wiki"
+description = "CLI tools for maintaining an LLM-assisted research wiki"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.14"

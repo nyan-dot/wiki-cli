@@ -7,7 +7,7 @@ import urllib.request
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 
-from .models import SepEntry
+from .models import SourceEntry
 from .utils import markdown_heading_anchor, normalize_inline, slugify
 
 
@@ -230,7 +230,7 @@ def extract_sep_article_html(page_html: str) -> str:
     return page_html[start_index:end_index]
 
 
-def parse_sep_entry(url: str, page_html: str, slug: str | None = None) -> SepEntry:
+def parse_sep_entry(url: str, page_html: str, slug: str | None = None) -> SourceEntry:
     parser = MetaParser()
     parser.feed(page_html)
 
@@ -248,7 +248,8 @@ def parse_sep_entry(url: str, page_html: str, slug: str | None = None) -> SepEnt
     parsed_url = urllib.parse.urlparse(url)
     derived_slug = slug or slugify(parsed_url.path.rstrip("/").split("/")[-1] or title)
 
-    return SepEntry(
+    return SourceEntry(
+        source_type="sep",
         slug=derived_slug,
         title=title,
         url=url,
@@ -256,6 +257,7 @@ def parse_sep_entry(url: str, page_html: str, slug: str | None = None) -> SepEnt
         first_published=first_published,
         pubinfo=pubinfo,
         fetched_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        canonical_id=derived_slug,
     )
 
 

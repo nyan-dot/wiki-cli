@@ -12,7 +12,8 @@ class LintFinding:
 
 
 @dataclass
-class SepEntry:
+class SourceEntry:
+    source_type: str
     slug: str
     title: str
     url: str
@@ -20,6 +21,10 @@ class SepEntry:
     first_published: str | None
     pubinfo: str | None
     fetched_at: str
+    abstract: str | None = None
+    canonical_id: str | None = None
+    source_archive_name: str | None = None
+    primary_source_path: str | None = None
 
 
 @dataclass

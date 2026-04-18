@@ -1,0 +1,25 @@
+\documentclass{article}
+\begin{document}
+\begin{abstract}
+Compact smoke fixture for transformer-style conversion.
+\end{abstract}
+
+\newcommand{\dmodel}{d_{\text{model}}}
+
+\section{Introduction}
+\paragraph{Encoder:} Uses \dmodel.
+
+\begin{table}
+\caption{Results summary.}
+\label{tab:results}
+\begin{tabular}{lccccc}
+\toprule
+\multirow{2}{*}{\vspace{-2mm}Model} & \multicolumn{2}{c}{BLEU} & & \multicolumn{2}{c}{Training Cost (FLOPs)} \\
+& EN-DE & EN-FR & & EN-DE & EN-FR \\
+\hline
+Transformer (base model) & 27.3 & 38.1 & & \multicolumn{2}{c}{\boldmath$3.3\cdot10^{18}$}\\
+\end{tabular}
+\end{table}
+
+See Table \ref{tab:results}.
+\end{document}

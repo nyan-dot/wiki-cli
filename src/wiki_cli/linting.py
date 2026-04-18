@@ -36,11 +36,14 @@ def lint_wiki() -> list[LintFinding]:
 
     index_text = index_path.read_text(encoding="utf-8")
     log_text = log_path.read_text(encoding="utf-8")
-    raw_slugs = (
-        {path.name for path in paths.RAW_ROOT.iterdir() if path.is_dir()}
-        if paths.RAW_ROOT.exists()
-        else set()
-    )
+    raw_slugs_by_type = {
+        source_type: (
+            {path.name for path in raw_root.iterdir() if path.is_dir()}
+            if raw_root.exists()
+            else set()
+        )
+        for source_type, raw_root in paths.RAW_SOURCE_ROOTS.items()
+    }
     parse_failed = False
 
     for path in iter_content_pages():
@@ -121,6 +124,7 @@ def lint_wiki() -> list[LintFinding]:
                     )
 
             note_slug = frontmatter.get("slug")
+            source_type = str(frontmatter.get("source_type") or "").strip()
             if note_slug and note_slug != slug:
                 add_finding(
                     findings,
@@ -129,12 +133,19 @@ def lint_wiki() -> list[LintFinding]:
                     f"Frontmatter slug `{note_slug}` does not match filename `{slug}`.",
                 )
 
-            if slug not in raw_slugs:
+            if source_type not in paths.RAW_SOURCE_ROOTS:
                 add_finding(
                     findings,
                     "error",
                     relative_path,
-                    f"Missing matching raw import under `raw/sep/{slug}/`.",
+                    f"Unsupported source type `{source_type}`.",
+                )
+            elif slug not in raw_slugs_by_type[source_type]:
+                add_finding(
+                    findings,
+                    "error",
+                    relative_path,
+                    f"Missing matching raw import under `raw/{source_type}/{slug}/`.",
                 )
 
             if f"wiki/sources/{slug}.md" not in log_text:
@@ -205,15 +216,16 @@ def lint_wiki() -> list[LintFinding]:
                     f"Broken wiki link: [[{link}]]",
                 )
 
-    for raw_slug in sorted(raw_slugs):
-        note_path = paths.SOURCE_NOTES_ROOT / f"{raw_slug}.md"
-        if not note_path.exists():
-            add_finding(
-                findings,
-                "warning",
-                note_path.relative_to(paths.ROOT),
-                f"Raw import exists without a source note for `{raw_slug}`.",
-            )
+    for source_type, raw_slugs in raw_slugs_by_type.items():
+        for raw_slug in sorted(raw_slugs):
+            note_path = paths.SOURCE_NOTES_ROOT / f"{raw_slug}.md"
+            if not note_path.exists():
+                add_finding(
+                    findings,
+                    "warning",
+                    note_path.relative_to(paths.ROOT),
+                    f"Raw import under `raw/{source_type}/` exists without a source note for `{raw_slug}`.",
+                )
 
     if not parse_failed:
         expected_index = build_index_text()

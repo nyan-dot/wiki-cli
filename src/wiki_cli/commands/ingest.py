@@ -8,6 +8,7 @@ from ..notes import (
     append_person_log_entry,
     create_person_page,
     create_source_note,
+    import_arxiv_source,
     import_sep,
     load_entry,
     update_index,
@@ -30,9 +31,26 @@ def import_sep_command(args: argparse.Namespace) -> None:
     print(f"Seed note: wiki/sources/{entry.slug}.md")
 
 
+def import_arxiv_source_command(args: argparse.Namespace) -> None:
+    entry = import_arxiv_source(
+        args.identifier_or_url, slug=args.slug, force=args.force
+    )
+    log_activity(
+        "arxiv_imported",
+        command_name="import-arxiv-src",
+        slug=entry.slug,
+        title=entry.title,
+        url=entry.url,
+        author_count=len(entry.authors),
+        canonical_id=entry.canonical_id,
+    )
+    print(f"Imported arXiv source: {entry.title} -> raw/arxiv/{entry.slug}")
+    print(f"Seed note: wiki/sources/{entry.slug}.md")
+
+
 def seed_note_command(args: argparse.Namespace) -> None:
     paths.ensure_workspace()
-    entry = load_entry(args.slug)
+    entry = load_entry(args.slug, source_type=args.source_type)
     path = create_source_note(entry, force=args.force)
     update_index(entry)
     log_activity(
@@ -85,14 +103,42 @@ def register_import_sep_parser(
     import_parser.set_defaults(func=import_sep_command)
 
 
+def register_import_arxiv_source_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    import_parser = subparsers.add_parser(
+        "import-arxiv-src",
+        help="Fetch an arXiv source archive, extract it, and seed a source note.",
+    )
+    import_parser.add_argument(
+        "identifier_or_url",
+        help="arXiv identifier or URL, such as 1706.03762 or https://arxiv.org/src/1706.03762",
+    )
+    import_parser.add_argument(
+        "--slug",
+        help="Optional slug override for the local entry directory.",
+    )
+    import_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing raw source files for the same slug.",
+    )
+    import_parser.set_defaults(func=import_arxiv_source_command)
+
+
 def register_seed_note_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     seed_parser = subparsers.add_parser(
         "seed-note",
-        help="Create or refresh a wiki source note from an existing raw SEP import.",
+        help="Create or refresh a wiki source note from an existing raw source import.",
     )
-    seed_parser.add_argument("slug", help="Slug under raw/sep/<slug>.")
+    seed_parser.add_argument("slug", help="Slug under raw/<source-type>/<slug>.")
+    seed_parser.add_argument(
+        "--source-type",
+        choices=sorted(paths.RAW_SOURCE_ROOTS),
+        help="Optional source type to disambiguate between raw imports with the same slug.",
+    )
     seed_parser.add_argument(
         "--force",
         action="store_true",
