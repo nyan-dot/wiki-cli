@@ -79,7 +79,7 @@ def import_arxiv_source(
     entry_dir.mkdir(parents=True, exist_ok=True)
     archive_path = entry_dir / archive_name
     archive_path.write_bytes(archive_bytes)
-    (entry_dir / "abs.html").write_text(page_html, encoding="utf-8")
+    (entry_dir / "abs.html").write_text(page_html, encoding="utf-8", newline="\n")
 
     extracted_dir = entry_dir / "extracted"
     extracted_files = arxiv.extract_archive(archive_path, extracted_dir)
@@ -233,7 +233,7 @@ def append_log_entry(entry: SourceEntry) -> None:
         source_md=source_md,
         note_md=note_md,
     )
-    with log_path.open("a", encoding="utf-8") as handle:
+    with log_path.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(entry_block)
 
 
@@ -254,5 +254,5 @@ def append_person_log_entry(slug: str, title: str) -> None:
         timestamp=timestamp,
         page_md=page_md,
     )
-    with log_path.open("a", encoding="utf-8") as handle:
+    with log_path.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(entry_block)

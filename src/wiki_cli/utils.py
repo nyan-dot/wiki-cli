@@ -32,7 +32,7 @@ def write_text(path: Path, content: str, *, force: bool = False) -> None:
     if path.exists() and not force:
         raise FileExistsError(f"{path} already exists. Use --force to overwrite it.")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def relative_markdown_path(from_path: Path, to_path: Path) -> str:

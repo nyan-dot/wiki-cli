@@ -12,7 +12,11 @@ from wiki_cli.notes import append_log_entry, create_source_note
 
 def write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(textwrap.dedent(content).lstrip(), encoding="utf-8")
+    path.write_text(
+        textwrap.dedent(content).lstrip(),
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def read_machine_log(root: Path) -> list[dict[str, object]]:

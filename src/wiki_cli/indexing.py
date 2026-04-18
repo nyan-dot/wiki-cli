@@ -55,4 +55,4 @@ def build_index_text(records: list[PageRecord] | None = None) -> str:
 def build_index() -> None:
     paths.ensure_workspace()
     index_path = paths.WIKI_ROOT / "index.md"
-    index_path.write_text(build_index_text(), encoding="utf-8")
+    index_path.write_text(build_index_text(), encoding="utf-8", newline="\n")
