@@ -16,10 +16,10 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "pytest>=8.4,<9",
-  "ruff",
+  "ruff>=0.15.11,<0.16",
 ]
 
 [project.scripts]

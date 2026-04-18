@@ -19,21 +19,21 @@ holds `wiki/`, `raw/`, and `AGENTS.md`.
 Run the test suite:
 
 ```bash
-uv run --extra dev pytest
+uv run pytest
 ```
 
 Run lint checks:
 
 ```bash
-uv run --extra dev ruff check .
-uv run --extra dev ruff format --check .
+uv run ruff check .
+uv run ruff format --check .
 ```
 
 Apply auto-fixable lint changes:
 
 ```bash
-uv run --extra dev ruff check . --fix
-uv run --extra dev ruff format .
+uv run ruff check . --fix
+uv run ruff format .
 ```
 
 Run a quick compile check:
