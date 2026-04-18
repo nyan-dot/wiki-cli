@@ -61,3 +61,8 @@ The companion content repository is expected to hold:
 
 The CLI intentionally stays small and file-based so the content repo remains
 plain Markdown plus source artifacts.
+
+## License
+
+`wiki-cli` is licensed under the GNU General Public License, version 3 or any
+later version (`GPL-3.0-or-later`). See [LICENSE](LICENSE).

@@ -7,8 +7,14 @@ name = "wiki-cli"
 version = "0.1.0"
 description = "CLI tools for maintaining an LLM-assisted philosophy wiki"
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.14"
 dependencies = []
+classifiers = [
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
 
 [project.optional-dependencies]
 dev = [
