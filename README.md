@@ -27,6 +27,7 @@ Run lint checks:
 ```bash
 uv run ruff check .
 uv run ruff format --check .
+uv run pyright
 ```
 
 Apply auto-fixable lint changes:

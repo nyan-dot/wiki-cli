@@ -5,6 +5,7 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
+from types import TracebackType
 
 from . import paths
 
@@ -78,7 +79,13 @@ def log_activity(
     *,
     level: int = logging.INFO,
     command_name: str | None = None,
-    exc_info: object = None,
+    exc_info: (
+        bool
+        | BaseException
+        | tuple[type[BaseException], BaseException, TracebackType | None]
+        | tuple[None, None, None]
+        | None
+    ) = None,
     **payload: object,
 ) -> None:
     logger = get_activity_logger()

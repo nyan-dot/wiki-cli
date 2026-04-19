@@ -7,6 +7,7 @@ import tarfile
 import urllib.parse
 import urllib.request
 import zipfile
+from collections.abc import Callable
 from datetime import UTC, datetime
 from email.message import Message
 from html.parser import HTMLParser
@@ -730,7 +731,7 @@ def replace_inline_commands(
 def replace_simple_argument_command(
     text: str,
     command: str,
-    formatter: callable,
+    formatter: Callable[[str], str],
 ) -> str:
     pattern = re.compile(TEX_SIMPLE_ARG_TEMPLATE.format(command=re.escape(command)))
     rendered = text
@@ -744,7 +745,7 @@ def replace_simple_argument_command(
 def replace_double_argument_command(
     text: str,
     command: str,
-    formatter: callable,
+    formatter: Callable[[str, str], str],
 ) -> str:
     pattern = re.compile(TEX_DOUBLE_ARG_TEMPLATE.format(command=re.escape(command)))
     rendered = text
@@ -1156,11 +1157,8 @@ def infer_reference_target_from_following_context(
     next_heading = TEX_SECTION_RE.search(trailing_text)
     next_env = TEX_ENV_RE.search(trailing_text)
 
-    heading_position = next_heading.start() if next_heading is not None else None
-    env_position = next_env.start() if next_env is not None else None
-
-    if heading_position is not None and (
-        env_position is None or heading_position < env_position
+    if next_heading is not None and (
+        next_env is None or next_heading.start() < next_env.start()
     ):
         return ("heading", cleanup_inline_tex(next_heading.group("title")))
 
@@ -1181,7 +1179,7 @@ def infer_reference_target_from_following_context(
 def replace_command_with_balanced_arguments(
     text: str,
     command: str,
-    formatter: callable,
+    formatter: Callable[[list[str]], str],
 ) -> str:
     token = f"\\{command}"
     pieces: list[str] = []
@@ -1217,7 +1215,7 @@ def replace_command_with_multiple_balanced_arguments(
     text: str,
     command: str,
     argument_count: int,
-    formatter: callable,
+    formatter: Callable[[list[str]], str],
 ) -> str:
     token = f"\\{command}"
     pieces: list[str] = []

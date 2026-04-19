@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from argparse import Namespace
 from pathlib import Path
 
 import pytest
@@ -19,11 +20,7 @@ def test_seed_person_creates_page_updates_index_and_logs(
     paths.ensure_workspace()
     seed_index_and_log(isolated_workspace)
 
-    args = type(
-        "Args",
-        (),
-        {"slug": "augustine", "title": "Augustine", "force": False},
-    )()
+    args = Namespace(slug="augustine", title="Augustine", force=False)
 
     seed_person_command(args)
 
@@ -58,17 +55,13 @@ def test_list_pages_filters_records(
         ],
     )
 
-    args = type(
-        "Args",
-        (),
-        {
-            "type": "concept",
-            "status": "seed",
-            "tag": ["lint"],
-            "contains": "lint",
-            "format": "text",
-        },
-    )()
+    args = Namespace(
+        type="concept",
+        status="seed",
+        tag=["lint"],
+        contains="lint",
+        format="text",
+    )
 
     list_pages_command(args)
     output = capsys.readouterr().out
@@ -89,13 +82,16 @@ def test_build_index_command_writes_machine_log(isolated_workspace: Path) -> Non
         ],
     )
 
-    build_index_command(type("Args", (), {})())
+    build_index_command(Namespace())
     events = read_machine_log(isolated_workspace)
 
     assert any(event["event"] == "index_rebuilt" for event in events)
     rebuilt = next(event for event in events if event["event"] == "index_rebuilt")
+    page_count = rebuilt["page_count"]
+
     assert rebuilt["command"] == "build-index"
-    assert rebuilt["page_count"] >= 3
+    assert isinstance(page_count, int)
+    assert page_count >= 3
     assert rebuilt["path"] == "wiki/index.md"
 
 
