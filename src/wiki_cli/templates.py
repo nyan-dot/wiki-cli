@@ -22,6 +22,7 @@ def render_source_note(
     concept_slug: str,
     source_md_path: str,
     source_html_path: str,
+    notes_html_path: str | None,
     authors_yaml: str,
     source_archive_path: str | None = None,
     primary_source_path: str | None = None,
@@ -51,6 +52,8 @@ def render_source_note(
         extra_snapshot_lines.append(
             f"- Primary source candidate: [{primary_source_path}]({primary_source_path})"
         )
+    if notes_html_path:
+        extra_snapshot_lines.append(f"- Notes HTML: [{notes_html_path}]({notes_html_path})")
 
     return f"""---
 title: "{escape_quotes(entry.title)}"

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import html
 import re
+from collections.abc import Callable
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
@@ -9,6 +11,15 @@ from datetime import UTC, datetime
 from html.parser import HTMLParser
 
 from .models import SourceEntry
+from .sep_notes import (
+    SepFootnoteBlock,
+    SepNotesParser,
+    footnote_number_from_note_id,
+    format_sep_note_cross_reference,
+    render_sep_footnotes,
+    strip_sep_note_backlink,
+    trim_blank_lines,
+)
 from .utils import markdown_heading_anchor, normalize_inline, slugify
 
 
@@ -17,6 +28,7 @@ SEP_TAIL_SECTIONS_TO_DROP = {
     "Other Internet Resources",
 }
 MARKDOWN_LINK_RE = re.compile(r"\[(?P<label>[^\]]+)\]\((?P<url>[^)\s]+)\)")
+SEP_INLINE_NOTE_REF_RE = re.compile(r"\[\[(?P<number>\d+)\]\((?P<url>[^)]+)\)\]")
 
 
 @dataclass
@@ -84,6 +96,58 @@ class MarkdownTableBuffer:
 
     def inside_cell(self) -> bool:
         return self.current_cell_parts is not None
+
+
+@dataclass
+class SepLinkContext:
+    entry_url: str
+    heading_ids_to_anchors: dict[str, str]
+    notes_url: str | None = None
+    note_ids: frozenset[str] = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        self._normalized_entry_url = normalize_url_without_fragment(self.entry_url)
+        self._normalized_notes_url = (
+            normalize_url_without_fragment(self.notes_url)
+            if self.notes_url is not None
+            else None
+        )
+
+    def same_entry_anchor(self, url: str) -> str | None:
+        if not self.heading_ids_to_anchors:
+            return None
+        return same_entry_fragment_to_anchor(
+            url,
+            self._normalized_entry_url,
+            self.heading_ids_to_anchors,
+        )
+
+    def same_note_number(self, url: str) -> int | None:
+        if self._normalized_notes_url is None or not self.note_ids:
+            return None
+
+        normalized_target, fragment = normalize_link_fragment_target(
+            url,
+            fallback_url=self._normalized_notes_url,
+        )
+        if normalized_target != self._normalized_notes_url or fragment is None:
+            return None
+        if fragment not in self.note_ids:
+            return None
+        return footnote_number_from_note_id(fragment)
+
+    def is_note_reference(self, url: str, number: int) -> bool:
+        if self._normalized_notes_url is None:
+            return False
+
+        normalized_target, fragment = normalize_link_fragment_target(
+            url,
+            fallback_url=self._normalized_notes_url,
+        )
+        return (
+            normalized_target == self._normalized_notes_url
+            and fragment == f"note-{number}"
+        )
 
 
 class MetaParser(HTMLParser):
@@ -177,6 +241,13 @@ class MarkdownArticleParser(HTMLParser):
             return
 
         attr_map = {key: value or "" for key, value in attrs}
+
+        if self._current_heading_parts is not None and self._current_heading_id is None:
+            nested_heading_id = (
+                attr_map.get("id", "").strip() or attr_map.get("name", "").strip()
+            )
+            if nested_heading_id:
+                self._current_heading_id = nested_heading_id
 
         if tag in self.HEADING_LEVELS:
             self._start_heading(tag, attr_map)
@@ -479,6 +550,15 @@ def fetch_url(url: str) -> str:
         return response.read().decode("utf-8", errors="ignore")
 
 
+def fetch_optional_url(url: str) -> str | None:
+    try:
+        return fetch_url(url)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
 def extract_sep_article_html(page_html: str) -> str:
     start_marker = '<div id="aueditable">'
     end_marker = "</div><!-- #aueditable -->"
@@ -529,41 +609,59 @@ def first_meta_value(meta: dict[str, list[str]], key: str) -> str | None:
     return values[0] if values else None
 
 
-def convert_sep_html_to_markdown(article_html: str, base_url: str) -> str:
+def convert_sep_html_to_markdown(
+    article_html: str,
+    base_url: str,
+    *,
+    notes_html: str | None = None,
+    notes_url: str | None = None,
+) -> str:
     parser = MarkdownArticleParser(base_url)
     parser.feed(article_html)
-    markdown = parser.to_markdown()
-    markdown = rewrite_same_entry_links(
-        markdown,
-        base_url,
-        parser.heading_ids_to_anchors,
+    link_context = SepLinkContext(
+        entry_url=base_url,
+        heading_ids_to_anchors=parser.heading_ids_to_anchors,
+        notes_url=notes_url,
     )
-    return postprocess_sep_markdown(markdown)
-
-
-def rewrite_same_entry_links(
-    markdown: str,
-    base_url: str,
-    heading_ids_to_anchors: dict[str, str],
-) -> str:
-    if not heading_ids_to_anchors:
-        return markdown
-
-    normalized_base = normalize_url_without_fragment(base_url)
-
-    def replace_link(match: re.Match[str]) -> str:
-        label = match.group("label")
-        url = match.group("url")
-        anchor = same_entry_fragment_to_anchor(
-            url,
-            normalized_base,
-            heading_ids_to_anchors,
+    markdown = parser.to_markdown()
+    markdown = rewrite_same_entry_links(markdown, link_context)
+    markdown = postprocess_sep_markdown(markdown)
+    if notes_html and notes_url:
+        footnotes = extract_sep_footnotes(
+            notes_html,
+            link_context=link_context,
         )
-        if anchor is None:
-            return match.group(0)
-        return f"[{label}](#{anchor})"
+        if footnotes:
+            markdown = apply_sep_footnotes(
+                markdown,
+                link_context=link_context,
+                footnotes=footnotes,
+            )
+    return markdown
+
+
+def rewrite_markdown_links(
+    markdown: str,
+    replacer: Callable[[str, str], str | None],
+) -> str:
+    def replace_link(match: re.Match[str]) -> str:
+        replacement = replacer(match.group("label"), match.group("url"))
+        return replacement if replacement is not None else match.group(0)
 
     return MARKDOWN_LINK_RE.sub(replace_link, markdown)
+
+
+def rewrite_same_entry_links(markdown: str, link_context: SepLinkContext) -> str:
+    if not link_context.heading_ids_to_anchors:
+        return markdown
+
+    def replace_link(label: str, url: str) -> str | None:
+        anchor = link_context.same_entry_anchor(url)
+        if anchor is None:
+            return None
+        return f"[{label}](#{anchor})"
+
+    return rewrite_markdown_links(markdown, replace_link)
 
 
 def same_entry_fragment_to_anchor(
@@ -584,9 +682,30 @@ def same_entry_fragment_to_anchor(
     return heading_ids_to_anchors.get(fragment)
 
 
+def normalize_link_fragment_target(
+    url: str,
+    *,
+    fallback_url: str,
+) -> tuple[str | None, str | None]:
+    parsed = urllib.parse.urlparse(url)
+    if not parsed.fragment:
+        return None, None
+
+    normalized_target = (
+        normalize_url_without_fragment(url)
+        if parsed.scheme or parsed.netloc or parsed.path or parsed.query
+        else fallback_url
+    )
+    fragment = urllib.parse.unquote(parsed.fragment)
+    return normalized_target, fragment
+
+
 def normalize_url_without_fragment(url: str) -> str:
     parsed = urllib.parse.urlparse(url)
-    normalized_path = parsed.path.rstrip("/") or "/"
+    normalized_path = parsed.path
+    if normalized_path.endswith("/index.html"):
+        normalized_path = normalized_path[: -len("/index.html")] or "/"
+    normalized_path = normalized_path.rstrip("/") or "/"
     return urllib.parse.urlunparse(
         (
             parsed.scheme.lower(),
@@ -605,6 +724,133 @@ def postprocess_sep_markdown(markdown: str) -> str:
     lines = drop_sep_tail_sections(lines, SEP_TAIL_SECTIONS_TO_DROP)
     lines = rewrite_related_entries_section(lines)
     return collapse_blank_lines(lines)
+
+
+def extract_sep_footnotes(
+    notes_html: str,
+    *,
+    link_context: SepLinkContext,
+) -> list[SepFootnoteBlock]:
+    if link_context.notes_url is None:
+        return []
+
+    notes_article_html = extract_sep_article_html(notes_html)
+    parser = SepNotesParser()
+    parser.feed(notes_article_html)
+
+    note_ids = tuple(parser.note_html_by_id.keys())
+    note_link_context = SepLinkContext(
+        entry_url=link_context.entry_url,
+        heading_ids_to_anchors=link_context.heading_ids_to_anchors,
+        notes_url=link_context.notes_url,
+        note_ids=frozenset(note_ids),
+    )
+    footnotes: list[SepFootnoteBlock] = []
+    for note_id in note_ids:
+        number = footnote_number_from_note_id(note_id)
+        if number is None:
+            continue
+
+        note_markdown = convert_sep_note_html_to_markdown(
+            parser.note_html_by_id[note_id],
+            link_context=note_link_context,
+        )
+        body_lines = trim_blank_lines(note_markdown.splitlines())
+        if not body_lines:
+            continue
+
+        footnotes.append(
+            SepFootnoteBlock(number=number, note_id=note_id, body_lines=body_lines)
+        )
+
+    return footnotes
+def convert_sep_note_html_to_markdown(
+    note_html: str,
+    *,
+    link_context: SepLinkContext,
+) -> str:
+    if link_context.notes_url is None:
+        return ""
+
+    parser = MarkdownArticleParser(link_context.notes_url)
+    parser.feed(note_html)
+    markdown = parser.to_markdown()
+    markdown = rewrite_same_entry_links(markdown, link_context)
+    markdown = rewrite_sep_note_internal_links(
+        markdown,
+        link_context=link_context,
+    )
+    markdown = strip_sep_note_backlink(markdown)
+    return collapse_blank_lines(markdown.splitlines())
+
+
+def rewrite_sep_note_internal_links(
+    markdown: str,
+    *,
+    link_context: SepLinkContext,
+) -> str:
+    if not link_context.note_ids:
+        return markdown
+
+    def replace_link(label: str, url: str) -> str | None:
+        note_number = link_context.same_note_number(url)
+        if note_number is None:
+            return None
+        return format_sep_note_cross_reference(label, note_number)
+
+    return rewrite_markdown_links(markdown, replace_link)
+
+
+def apply_sep_footnotes(
+    markdown: str,
+    *,
+    link_context: SepLinkContext,
+    footnotes: list[SepFootnoteBlock],
+) -> str:
+    rewritten = rewrite_sep_inline_footnote_references(
+        markdown,
+        link_context=link_context,
+        footnote_numbers={footnote.number for footnote in footnotes},
+    )
+    rendered = render_sep_footnotes(footnotes)
+    if not rendered:
+        return rewritten
+
+    lines = rewritten.splitlines()
+    insert_at = next(
+        (index for index, line in enumerate(lines) if line == "## Bibliography"),
+        len(lines),
+    )
+
+    rebuilt = lines[:insert_at]
+    if rebuilt and rebuilt[-1].strip():
+        rebuilt.append("")
+    rebuilt.extend(rendered)
+
+    if insert_at < len(lines):
+        if rebuilt and rebuilt[-1].strip():
+            rebuilt.append("")
+        rebuilt.extend(lines[insert_at:])
+
+    return collapse_blank_lines(rebuilt)
+
+
+def rewrite_sep_inline_footnote_references(
+    markdown: str,
+    *,
+    link_context: SepLinkContext,
+    footnote_numbers: set[int],
+) -> str:
+    def replace_reference(match: re.Match[str]) -> str:
+        number = int(match.group("number"))
+        if number not in footnote_numbers:
+            return match.group(0)
+
+        if not link_context.is_note_reference(match.group("url"), number):
+            return match.group(0)
+        return f"[^{number}]"
+
+    return SEP_INLINE_NOTE_REF_RE.sub(replace_reference, markdown)
 
 
 def remove_sep_toc_block(lines: list[str]) -> list[str]:

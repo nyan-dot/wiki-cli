@@ -30,7 +30,14 @@ def import_sep(url: str, slug: str | None, force: bool) -> SourceEntry:
     page_html = sep.fetch_url(url)
     entry = sep.parse_sep_entry(url, page_html, slug)
     article_html = sep.extract_sep_article_html(page_html)
-    source_markdown = sep.convert_sep_html_to_markdown(article_html, base_url=url)
+    notes_url = f"{url.rstrip('/')}/notes.html"
+    notes_html = sep.fetch_optional_url(notes_url)
+    source_markdown = sep.convert_sep_html_to_markdown(
+        article_html,
+        base_url=url,
+        notes_html=notes_html,
+        notes_url=notes_url if notes_html else None,
+    )
 
     entry_dir = paths.raw_root(entry.source_type) / entry.slug
     if entry_dir.exists() and not force:
@@ -40,6 +47,8 @@ def import_sep(url: str, slug: str | None, force: bool) -> SourceEntry:
 
     entry_dir.mkdir(parents=True, exist_ok=True)
     write_text(entry_dir / "source.html", page_html, force=True)
+    if notes_html is not None:
+        write_text(entry_dir / "notes.html", notes_html, force=True)
     write_text(entry_dir / "source.md", source_markdown, force=True)
     write_text(
         entry_dir / "meta.json",
@@ -182,6 +191,12 @@ def create_source_note(entry: SourceEntry, force: bool) -> Path:
         note_path,
         raw_root / entry.slug / source_page_name,
     )
+    notes_html_path = (
+        relative_markdown_path(note_path, raw_root / entry.slug / "notes.html")
+        if entry.source_type == "sep"
+        and (raw_root / entry.slug / "notes.html").exists()
+        else None
+    )
     source_archive_path = (
         relative_markdown_path(
             note_path, raw_root / entry.slug / entry.source_archive_name
@@ -215,6 +230,7 @@ def create_source_note(entry: SourceEntry, force: bool) -> Path:
         concept_slug=concept_slug,
         source_md_path=source_md_path,
         source_html_path=source_html_path,
+        notes_html_path=notes_html_path,
         authors_yaml=yaml_list(entry.authors),
         source_archive_path=source_archive_path,
         source_manifest_path=source_manifest_path,

@@ -91,6 +91,8 @@ source-specific cleanup:
   code blocks, images, links, and basic tables
 - SEP then rewrites same-entry links and trims SEP-specific boilerplate such as
   the table of contents and tail resource sections
+- When an SEP `notes.html` page exists, SEP imports also save it locally and
+  rewrite note references into Markdown footnotes in `source.md`
 - LessWrong then normalizes inline footnote references, preserves multiline
   footnotes and footnote tables, and keeps common author-side formatting such as
   bracketed `Edit` blocks
@@ -109,6 +111,13 @@ LessWrong imports store immutable post artifacts under `raw/lesswrong/<slug>/`:
 - `extracted/` for the unpacked TeX and auxiliary files
 - `source.md` as a generated reading Markdown file derived from the primary TeX source
 - `manifest.md` as a file inventory that links into the extracted tree
+
+SEP imports store immutable entry artifacts under `raw/sep/<slug>/`:
+
+- `meta.json` for normalized metadata
+- `source.html` for the fetched entry HTML
+- `source.md` as generated reading Markdown
+- `notes.html` when the SEP entry exposes a notes page used for local footnotes
 
 ## License
 

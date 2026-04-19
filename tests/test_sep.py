@@ -156,6 +156,88 @@ def test_markdown_heading_anchor_deduplicates_same_titles() -> None:
     assert "[second](#notes-1)" in markdown
 
 
+def test_convert_sep_html_to_markdown_rewrites_links_when_heading_id_lives_on_nested_anchor() -> (
+    None
+):
+    article_html = textwrap.dedent(
+        """
+        <p>Jump to <a href="#nested">the section</a>.</p>
+        <h2><a id="nested">2. Nested Anchor Heading</a></h2>
+        <p>Body.</p>
+        """
+    )
+
+    markdown = convert_sep_html_to_markdown(
+        article_html,
+        "https://plato.stanford.edu/entries/test-entry/",
+    )
+
+    assert "[the section](#2-nested-anchor-heading)" in markdown
+
+
+def test_convert_sep_html_to_markdown_uses_notes_html_for_markdown_footnotes() -> None:
+    article_html = textwrap.dedent(
+        """
+        <p>Claim with note<sup>[<a href="notes.html#note-1" id="ref-1">1</a>]</sup>.</p>
+        <h2 id="bib">Bibliography</h2>
+        <p>References.</p>
+        """
+    )
+    notes_html = textwrap.dedent(
+        """
+        <div id="aueditable">
+        <h2>Notes to <a href="index.html">Test Entry</a></h2>
+        <div id="note-1">
+        <p><a href="index.html#ref-1">1.</a> Footnote body with a link to
+        <a href="index.html#bib">the bibliography</a>.</p>
+        </div>
+        </div><!-- #aueditable -->
+        """
+    )
+
+    markdown = convert_sep_html_to_markdown(
+        article_html,
+        "https://plato.stanford.edu/entries/test-entry/",
+        notes_html=notes_html,
+        notes_url="https://plato.stanford.edu/entries/test-entry/notes.html",
+    )
+
+    assert "Claim with note[^1]." in markdown
+    assert "[^1]: Footnote body with a link to [the bibliography](#bibliography)." in markdown
+    assert markdown.index("[^1]:") < markdown.index("## Bibliography")
+
+
+def test_convert_sep_html_to_markdown_keeps_links_between_notes_local() -> None:
+    article_html = textwrap.dedent(
+        """
+        <p>Claim<sup>[<a href="notes.html#note-1" id="ref-1">1</a>]</sup>.</p>
+        """
+    )
+    notes_html = textwrap.dedent(
+        """
+        <div id="aueditable">
+        <h2>Notes to <a href="index.html">Test Entry</a></h2>
+        <div id="note-1">
+        <p><a href="index.html#ref-1">1.</a> First note; compare <a href="#note-2">note 2</a>.</p>
+        </div>
+        <div id="note-2">
+        <p><a href="index.html#ref-2">2.</a> Second note.</p>
+        </div>
+        </div><!-- #aueditable -->
+        """
+    )
+
+    markdown = convert_sep_html_to_markdown(
+        article_html,
+        "https://plato.stanford.edu/entries/test-entry/",
+        notes_html=notes_html,
+        notes_url="https://plato.stanford.edu/entries/test-entry/notes.html",
+    )
+
+    assert "compare note [^2]." in markdown
+    assert "[^2]: Second note." in markdown
+
+
 def test_convert_sep_html_to_markdown_preserves_nested_list_indentation() -> None:
     article_html = textwrap.dedent(
         """

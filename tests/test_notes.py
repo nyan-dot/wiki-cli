@@ -13,6 +13,11 @@ def test_create_source_note_includes_house_style_sections(
     isolated_workspace: Path,
 ) -> None:
     paths.ensure_workspace()
+    raw_dir = paths.raw_root("sep") / "sample-entry"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (raw_dir / "source.md").write_text("# Sample Entry\n", encoding="utf-8")
+    (raw_dir / "source.html").write_text("<html></html>\n", encoding="utf-8")
+    (raw_dir / "notes.html").write_text("<html></html>\n", encoding="utf-8")
 
     entry = SourceEntry(
         source_type="sep",
@@ -39,6 +44,7 @@ def test_create_source_note_includes_house_style_sections(
     assert "## Important Passages" in note_text
     assert "## Tensions With Existing Pages" in note_text
     assert "[[concepts/sample-entry]]" in note_text
+    assert "Notes HTML:" in note_text
 
 
 def test_create_arxiv_source_note_includes_archive_and_primary_source(
