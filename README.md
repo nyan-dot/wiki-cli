@@ -37,6 +37,18 @@ uv run ruff check . --fix
 uv run ruff format .
 ```
 
+Install local pre-commit hooks:
+
+```bash
+uv run pre-commit install
+```
+
+Run the pre-commit suite across the whole repository:
+
+```bash
+uv run pre-commit run --all-files
+```
+
 Run a quick compile check:
 
 ```bash
