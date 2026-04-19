@@ -5,7 +5,6 @@ from pathlib import Path
 from .models import SourceEntry
 from .utils import escape_quotes
 
-
 SOURCE_TYPE_LABELS = {
     "sep": "SEP",
     "arxiv": "arXiv",
@@ -53,7 +52,9 @@ def render_source_note(
             f"- Primary source candidate: [{primary_source_path}]({primary_source_path})"
         )
     if notes_html_path:
-        extra_snapshot_lines.append(f"- Notes HTML: [{notes_html_path}]({notes_html_path})")
+        extra_snapshot_lines.append(
+            f"- Notes HTML: [{notes_html_path}]({notes_html_path})"
+        )
 
     return f"""---
 title: "{escape_quotes(entry.title)}"

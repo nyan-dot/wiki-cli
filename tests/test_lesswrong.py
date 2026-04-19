@@ -148,9 +148,7 @@ def test_extract_and_convert_lesswrong_body_to_markdown() -> None:
         "https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens",
     )
 
-    assert (
-        "[tag link](https://www.lesswrong.com/w/gpt)" in markdown
-    )
+    assert "[tag link](https://www.lesswrong.com/w/gpt)" in markdown
     assert "## Overview" in markdown
     assert "- Parent point" in markdown
     assert "  - Child point" in markdown
@@ -167,7 +165,9 @@ def test_import_lesswrong_writes_expected_files(
 ) -> None:
     paths.ensure_workspace()
     seed_index_and_log(isolated_workspace)
-    monkeypatch.setattr("wiki_cli.notes.lesswrong.fetch_url", lambda _url: sample_lesswrong_html())
+    monkeypatch.setattr(
+        "wiki_cli.notes.lesswrong.fetch_url", lambda _url: sample_lesswrong_html()
+    )
 
     entry = import_lesswrong(
         "https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens",
@@ -188,7 +188,9 @@ def test_import_lesswrong_writes_expected_files(
     assert "Raw markdown:" in note_text
 
 
-def test_postprocess_lesswrong_markdown_preserves_nested_lists_and_edit_blocks() -> None:
+def test_postprocess_lesswrong_markdown_preserves_nested_lists_and_edit_blocks() -> (
+    None
+):
     markdown = postprocess_lesswrong_markdown(
         textwrap.dedent(
             """

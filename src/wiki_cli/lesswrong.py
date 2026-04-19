@@ -12,7 +12,6 @@ from .sep import MarkdownArticleParser
 from .sep import fetch_url as sep_fetch_url
 from .utils import normalize_inline, slugify
 
-
 LESSWRONG_HOSTS = {"lesswrong.com", "www.lesswrong.com"}
 POST_PATH_RE = re.compile(
     r"^/posts/(?P<post_id>[A-Za-z0-9]+)/?(?P<slug>[A-Za-z0-9-]+)?/?$"
@@ -22,9 +21,7 @@ INLINE_FOOTNOTE_RE = re.compile(
 )
 TRAILING_FOOTNOTE_MARKER_RE = re.compile(r"^- \[\^\]\((?P<url>[^)]+#fnref[^)]+)\)$")
 TRAILING_FOOTNOTE_BULLET_RE = re.compile(r"^-\s*$")
-TRAILING_FOOTNOTE_BACKLINK_RE = re.compile(
-    r"\s*\[\[\^\]\]\([^)]+#fnref[^)]+\)$"
-)
+TRAILING_FOOTNOTE_BACKLINK_RE = re.compile(r"\s*\[\[\^\]\]\([^)]+#fnref[^)]+\)$")
 
 
 @dataclass
@@ -81,7 +78,9 @@ def normalize_lesswrong_url(url: str) -> tuple[str, str, str | None]:
 
     parsed = urllib.parse.urlparse(cleaned)
     if parsed.scheme not in {"http", "https"} or parsed.netloc not in LESSWRONG_HOSTS:
-        raise ValueError("LessWrong imports require a https://www.lesswrong.com/posts/... URL.")
+        raise ValueError(
+            "LessWrong imports require a https://www.lesswrong.com/posts/... URL."
+        )
 
     match = POST_PATH_RE.match(parsed.path)
     if match is None:
@@ -238,9 +237,9 @@ def convert_footnote_footer(lines: list[str]) -> list[str]:
 def trailing_footnote_start(lines: list[str]) -> int | None:
     for index, line in enumerate(lines):
         stripped = line.strip()
-        if TRAILING_FOOTNOTE_MARKER_RE.match(stripped) or TRAILING_FOOTNOTE_BULLET_RE.match(
+        if TRAILING_FOOTNOTE_MARKER_RE.match(
             stripped
-        ):
+        ) or TRAILING_FOOTNOTE_BULLET_RE.match(stripped):
             return index
     return None
 

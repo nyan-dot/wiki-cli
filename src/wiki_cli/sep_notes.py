@@ -7,7 +7,6 @@ from html.parser import HTMLParser
 
 from .utils import normalize_inline
 
-
 SEP_LEADING_NOTE_BACKLINK_RE = re.compile(r"^\[(?P<label>\d+\.)\]\([^)]+\)\s*")
 
 

@@ -40,7 +40,7 @@ def get_activity_logger() -> logging.Logger:
     global _ACTIVITY_LOGGER_PATH
 
     current_path = paths.activity_log_path().resolve()
-    if _ACTIVITY_LOGGER is not None and _ACTIVITY_LOGGER_PATH == current_path:
+    if _ACTIVITY_LOGGER is not None and current_path == _ACTIVITY_LOGGER_PATH:
         return _ACTIVITY_LOGGER
 
     paths.log_root().mkdir(parents=True, exist_ok=True)

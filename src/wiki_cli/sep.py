@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Callable
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from html.parser import HTMLParser
+from typing import ClassVar
 
 from .models import SourceEntry
 from .sep_notes import (
@@ -21,7 +22,6 @@ from .sep_notes import (
     trim_blank_lines,
 )
 from .utils import markdown_heading_anchor, normalize_inline, slugify
-
 
 SEP_TAIL_SECTIONS_TO_DROP = {
     "Academic Tools",
@@ -185,8 +185,8 @@ class MetaParser(HTMLParser):
 
 
 class MarkdownArticleParser(HTMLParser):
-    SKIP_TAGS = {"script", "style", "noscript"}
-    HEADING_LEVELS = {
+    SKIP_TAGS: ClassVar[set[str]] = {"script", "style", "noscript"}
+    HEADING_LEVELS: ClassVar[dict[str, int]] = {
         "h1": 1,
         "h2": 2,
         "h3": 3,
@@ -492,7 +492,9 @@ class MarkdownArticleParser(HTMLParser):
         return self.table_buffer.inside_cell()
 
 
-LIST_LINE_RE = re.compile(r"^(?P<indent>\s*)(?P<marker>(?:[-*+])|(?:\d+\.))\s+(?P<body>.*)$")
+LIST_LINE_RE = re.compile(
+    r"^(?P<indent>\s*)(?P<marker>(?:[-*+])|(?:\d+\.))\s+(?P<body>.*)$"
+)
 
 
 def normalize_markdown_line(line: str) -> str:
@@ -764,6 +766,8 @@ def extract_sep_footnotes(
         )
 
     return footnotes
+
+
 def convert_sep_note_html_to_markdown(
     note_html: str,
     *,
@@ -886,7 +890,7 @@ def remove_sep_toc_block(lines: list[str]) -> list[str]:
     if next_index >= len(lines) or not lines[next_index].startswith("## "):
         return lines
 
-    return lines[:start] + [""] + lines[next_index:]
+    return [*lines[:start], "", *lines[next_index:]]
 
 
 def drop_sep_tail_sections(lines: list[str], section_titles: set[str]) -> list[str]:

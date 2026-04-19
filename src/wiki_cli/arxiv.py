@@ -15,7 +15,6 @@ from pathlib import Path
 from .models import SourceEntry
 from .utils import markdown_heading_anchor, normalize_inline, slugify
 
-
 ARXIV_USER_AGENT = "wiki-cli/0.1 (+https://example.invalid/local-knowledge-base)"
 TEX_INCLUDE_RE = re.compile(r"\\(input|include|subfile)\{([^}]+)\}")
 TEX_SECTION_RE = re.compile(
@@ -1364,7 +1363,7 @@ def merge_header_rows(rows: list[list[str]]) -> list[list[str]]:
     second_row = rows[1]
     second_row_nonempty = [cell for cell in second_row if cell]
     if not second_row_nonempty:
-        return [first_row] + rows[2:]
+        return [first_row, *rows[2:]]
 
     if any("[cite:" in cell for cell in second_row_nonempty):
         return rows
@@ -1382,7 +1381,7 @@ def merge_header_rows(rows: list[list[str]]) -> list[list[str]]:
 
     merged: list[str] = []
     previous_header = ""
-    for first_cell, second_cell in zip(first_row, second_row):
+    for first_cell, second_cell in zip(first_row, second_row, strict=False):
         if first_cell:
             previous_header = first_cell
 
@@ -1394,7 +1393,7 @@ def merge_header_rows(rows: list[list[str]]) -> list[list[str]]:
         else:
             merged.append(first_cell)
 
-    return [merged] + rows[2:]
+    return [merged, *rows[2:]]
 
 
 def drop_empty_columns(rows: list[list[str]]) -> list[list[str]]:

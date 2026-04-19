@@ -10,15 +10,14 @@ from wiki_cli.arxiv import (
     archive_suffix,
     build_reading_markdown,
     convert_tex_to_markdown,
-    extract_reference_labels,
     expand_tex_file,
+    extract_reference_labels,
     filename_from_headers,
     normalize_arxiv_identifier,
     parse_arxiv_entry,
     tabular_to_markdown,
 )
 from wiki_cli.models import SourceEntry
-
 
 EXTRACTED_ROOT = Path("extracted")
 SMOKE_FIXTURES_ROOT = Path(__file__).parent / "fixtures" / "arxiv_smoke"
@@ -54,7 +53,9 @@ def write_arxiv_smoke_fixture(tmp_path: Path, slug: str) -> Path:
     entry_dir = tmp_path / slug
     extracted = entry_dir / "extracted"
     extracted.mkdir(parents=True)
-    (extracted / "main.tex").write_text(load_arxiv_smoke_fixture(slug), encoding="utf-8")
+    (extracted / "main.tex").write_text(
+        load_arxiv_smoke_fixture(slug), encoding="utf-8"
+    )
     return entry_dir
 
 
@@ -304,9 +305,9 @@ def test_build_reading_markdown_smoke_samples(
         assert fragment in markdown, f"{slug} reading copy is missing `{fragment}`"
 
     for fragment in unexpected_fragments:
-        assert (
-            fragment not in markdown
-        ), f"{slug} reading copy still contains `{fragment}`"
+        assert fragment not in markdown, (
+            f"{slug} reading copy still contains `{fragment}`"
+        )
 
 
 def test_parse_arxiv_entry_reads_meta_and_submission_history() -> None:

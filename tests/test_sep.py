@@ -203,7 +203,10 @@ def test_convert_sep_html_to_markdown_uses_notes_html_for_markdown_footnotes() -
     )
 
     assert "Claim with note[^1]." in markdown
-    assert "[^1]: Footnote body with a link to [the bibliography](#bibliography)." in markdown
+    assert (
+        "[^1]: Footnote body with a link to [the bibliography](#bibliography)."
+        in markdown
+    )
     assert markdown.index("[^1]:") < markdown.index("## Bibliography")
 
 

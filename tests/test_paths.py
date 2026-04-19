@@ -16,11 +16,11 @@ def test_paths_root_defaults_to_current_working_directory(
     monkeypatch.chdir(tmp_path)
     reloaded = importlib.reload(paths)
 
-    assert reloaded.ROOT == tmp_path.resolve()
-    assert reloaded.RAW_SEP_ROOT == tmp_path.resolve() / "raw" / "sep"
-    assert reloaded.RAW_ARXIV_ROOT == tmp_path.resolve() / "raw" / "arxiv"
-    assert reloaded.RAW_ROOT == tmp_path.resolve() / "raw" / "sep"
-    assert reloaded.WIKI_ROOT == tmp_path.resolve() / "wiki"
+    assert tmp_path.resolve() == reloaded.ROOT
+    assert tmp_path.resolve() / "raw" / "sep" == reloaded.RAW_SEP_ROOT
+    assert tmp_path.resolve() / "raw" / "arxiv" == reloaded.RAW_ARXIV_ROOT
+    assert tmp_path.resolve() / "raw" / "sep" == reloaded.RAW_ROOT
+    assert tmp_path.resolve() / "wiki" == reloaded.WIKI_ROOT
 
     monkeypatch.chdir(project_root)
     importlib.reload(paths)

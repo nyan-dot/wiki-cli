@@ -7,9 +7,9 @@ from ..activity import log_activity
 from ..notes import (
     append_person_log_entry,
     create_person_page,
-    import_lesswrong,
     create_source_note,
     import_arxiv_source,
+    import_lesswrong,
     import_sep,
     load_entry,
     update_index,

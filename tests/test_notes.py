@@ -92,7 +92,9 @@ def test_create_arxiv_source_note_includes_archive_and_primary_source(
     assert "Primary source candidate:" in note_text
 
 
-def test_create_lesswrong_source_note_includes_post_id(isolated_workspace: Path) -> None:
+def test_create_lesswrong_source_note_includes_post_id(
+    isolated_workspace: Path,
+) -> None:
     paths.ensure_workspace()
     raw_dir = paths.raw_root("lesswrong") / "logit-lens"
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -162,7 +164,12 @@ def test_append_log_entry_skips_duplicate_ingest_for_same_source(
 
     log_text = (paths.WIKI_ROOT / "log.md").read_text(encoding="utf-8")
     assert log_text.count("## [") == 1
-    assert log_text.count("- URL: https://www.lesswrong.com/posts/vJFdjigzmcXMhNTsx/simulators") == 1
+    assert (
+        log_text.count(
+            "- URL: https://www.lesswrong.com/posts/vJFdjigzmcXMhNTsx/simulators"
+        )
+        == 1
+    )
 
 
 def test_append_log_entry_keeps_distinct_ingests_with_same_title(
