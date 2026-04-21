@@ -8,6 +8,7 @@ from ..notes import (
     append_person_log_entry,
     create_person_page,
     create_source_note,
+    import_anthropic,
     import_arxiv_source,
     import_lesswrong,
     import_sep,
@@ -44,6 +45,21 @@ def import_lesswrong_command(args: argparse.Namespace) -> None:
         canonical_id=entry.canonical_id,
     )
     print(f"Imported LessWrong post: {entry.title} -> raw/lesswrong/{entry.slug}")
+    print(f"Seed note: wiki/sources/{entry.slug}.md")
+
+
+def import_anthropic_command(args: argparse.Namespace) -> None:
+    entry = import_anthropic(args.url, slug=args.slug, force=args.force)
+    log_activity(
+        "anthropic_imported",
+        command_name="import-anthropic",
+        slug=entry.slug,
+        title=entry.title,
+        url=entry.url,
+        author_count=len(entry.authors),
+        canonical_id=entry.canonical_id,
+    )
+    print(f"Imported Anthropic article: {entry.title} -> raw/anthropic/{entry.slug}")
     print(f"Seed note: wiki/sources/{entry.slug}.md")
 
 
@@ -143,6 +159,35 @@ def register_import_lesswrong_parser(
         help="Overwrite existing raw source files for the same slug.",
     )
     import_parser.set_defaults(func=import_lesswrong_command)
+
+
+def register_import_anthropic_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    import_parser = subparsers.add_parser(
+        "import-anthropic",
+        help=(
+            "Fetch a Transformer Circuits / Anthropic interpretability article, "
+            "convert it to Markdown, and seed a source note."
+        ),
+    )
+    import_parser.add_argument(
+        "url",
+        help=(
+            "Transformer Circuits article URL, such as "
+            "https://transformer-circuits.pub/2025/attribution-graphs/biology.html"
+        ),
+    )
+    import_parser.add_argument(
+        "--slug",
+        help="Optional slug override for the local entry directory.",
+    )
+    import_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing raw source files for the same slug.",
+    )
+    import_parser.set_defaults(func=import_anthropic_command)
 
 
 def register_import_arxiv_source_parser(

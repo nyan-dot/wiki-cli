@@ -9,6 +9,7 @@ SOURCE_TYPE_LABELS = {
     "sep": "SEP",
     "arxiv": "arXiv",
     "lesswrong": "LessWrong",
+    "anthropic": "Anthropic Interpretability",
 }
 
 
@@ -37,6 +38,7 @@ def render_source_note(
             "sep": "SEP slug",
             "arxiv": "arXiv ID",
             "lesswrong": "LessWrong post ID",
+            "anthropic": "Transformer Circuits article ID",
         }.get(entry.source_type, "Canonical ID")
         extra_snapshot_lines.append(f"- {canonical_id_label}: {entry.canonical_id}")
     if source_archive_path:

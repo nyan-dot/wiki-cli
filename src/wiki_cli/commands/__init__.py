@@ -1,7 +1,9 @@
 from .ingest import (
+    import_anthropic_command,
     import_arxiv_source_command,
     import_lesswrong_command,
     import_sep_command,
+    register_import_anthropic_parser,
     register_import_arxiv_source_parser,
     register_import_lesswrong_parser,
     register_import_sep_parser,
@@ -22,6 +24,7 @@ from .workspace import init_command, register_init_parser
 
 COMMAND_PARSER_REGISTRARS = [
     register_init_parser,
+    register_import_anthropic_parser,
     register_import_arxiv_source_parser,
     register_import_lesswrong_parser,
     register_import_sep_parser,
@@ -35,6 +38,7 @@ COMMAND_PARSER_REGISTRARS = [
 __all__ = [
     "COMMAND_PARSER_REGISTRARS",
     "build_index_command",
+    "import_anthropic_command",
     "import_arxiv_source_command",
     "import_lesswrong_command",
     "import_sep_command",
@@ -42,6 +46,7 @@ __all__ = [
     "lint_wiki_command",
     "list_pages_command",
     "register_build_index_parser",
+    "register_import_anthropic_parser",
     "register_import_arxiv_source_parser",
     "register_import_lesswrong_parser",
     "register_import_sep_parser",

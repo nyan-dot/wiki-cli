@@ -125,6 +125,42 @@ def test_create_lesswrong_source_note_includes_post_id(
     assert "- LessWrong post ID: AcKRB8wDpdaN6v6ru" in note_text
 
 
+def test_create_anthropic_source_note_includes_article_id(
+    isolated_workspace: Path,
+) -> None:
+    paths.ensure_workspace()
+    raw_dir = paths.raw_root("anthropic") / "biology"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (raw_dir / "source.md").write_text("# Article\n", encoding="utf-8")
+    (raw_dir / "source.html").write_text("<html></html>\n", encoding="utf-8")
+
+    entry = SourceEntry(
+        source_type="anthropic",
+        slug="biology",
+        title="On the Biology of a Large Language Model",
+        url="https://transformer-circuits.pub/2025/attribution-graphs/biology.html",
+        authors=[],
+        first_published="2025",
+        pubinfo="Transformer Circuits article (2025)",
+        fetched_at="2026-04-19T00:00:00+00:00",
+        canonical_id="2025/attribution-graphs/biology",
+    )
+
+    note_path = create_source_note(entry, force=False)
+    note_text = note_path.read_text(encoding="utf-8")
+
+    assert "source_type: anthropic" in note_text
+    assert (
+        'description: "Anthropic Interpretability source note for On the Biology of a Large Language Model and its role in the current cluster."'
+        in note_text
+    )
+    assert '  - "anthropic"' in note_text
+    assert (
+        "- Transformer Circuits article ID: 2025/attribution-graphs/biology"
+        in note_text
+    )
+
+
 def test_create_person_page_defaults_title_from_slug(isolated_workspace: Path) -> None:
     paths.ensure_workspace()
 

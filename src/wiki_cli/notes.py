@@ -6,7 +6,7 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
-from . import arxiv, lesswrong, paths, sep
+from . import anthropic, arxiv, lesswrong, paths, sep
 from .indexing import build_index
 from .models import SourceEntry
 from .templates import (
@@ -24,6 +24,42 @@ from .utils import (
 )
 
 
+def prepare_raw_entry_dir(entry: SourceEntry, force: bool) -> Path:
+    entry_dir = paths.raw_root(entry.source_type) / entry.slug
+    if entry_dir.exists() and not force:
+        raise FileExistsError(
+            f"{entry_dir} already exists. Use --force to refresh the raw source files."
+        )
+
+    entry_dir.mkdir(parents=True, exist_ok=True)
+    return entry_dir
+
+
+def write_standard_raw_import(
+    entry: SourceEntry,
+    *,
+    force: bool,
+    text_files: dict[str, str],
+) -> Path:
+    entry_dir = prepare_raw_entry_dir(entry, force)
+    for name, content in text_files.items():
+        write_text(entry_dir / name, content, force=True)
+    write_text(
+        entry_dir / "meta.json",
+        json.dumps(asdict(entry), indent=2, ensure_ascii=False) + "\n",
+        force=True,
+    )
+    return entry_dir
+
+
+def finalize_source_import(entry: SourceEntry) -> None:
+    note_path = paths.SOURCE_NOTES_ROOT / f"{entry.slug}.md"
+    if not note_path.exists():
+        create_source_note(entry, force=False)
+    update_index(entry)
+    append_log_entry(entry)
+
+
 def import_sep(url: str, slug: str | None, force: bool) -> SourceEntry:
     paths.ensure_workspace()
 
@@ -39,28 +75,14 @@ def import_sep(url: str, slug: str | None, force: bool) -> SourceEntry:
         notes_url=notes_url if notes_html else None,
     )
 
-    entry_dir = paths.raw_root(entry.source_type) / entry.slug
-    if entry_dir.exists() and not force:
-        raise FileExistsError(
-            f"{entry_dir} already exists. Use --force to refresh the raw source files."
-        )
-
-    entry_dir.mkdir(parents=True, exist_ok=True)
-    write_text(entry_dir / "source.html", page_html, force=True)
+    text_files = {
+        "source.html": page_html,
+        "source.md": source_markdown,
+    }
     if notes_html is not None:
-        write_text(entry_dir / "notes.html", notes_html, force=True)
-    write_text(entry_dir / "source.md", source_markdown, force=True)
-    write_text(
-        entry_dir / "meta.json",
-        json.dumps(asdict(entry), indent=2, ensure_ascii=False) + "\n",
-        force=True,
-    )
-
-    note_path = paths.SOURCE_NOTES_ROOT / f"{entry.slug}.md"
-    if not note_path.exists():
-        create_source_note(entry, force=False)
-    update_index(entry)
-    append_log_entry(entry)
+        text_files["notes.html"] = notes_html
+    write_standard_raw_import(entry, force=force, text_files=text_files)
+    finalize_source_import(entry)
     return entry
 
 
@@ -76,26 +98,41 @@ def import_lesswrong(url: str, slug: str | None, force: bool) -> SourceEntry:
         base_url=entry.url,
     )
 
-    entry_dir = paths.raw_root(entry.source_type) / entry.slug
-    if entry_dir.exists() and not force:
-        raise FileExistsError(
-            f"{entry_dir} already exists. Use --force to refresh the raw source files."
-        )
+    write_standard_raw_import(
+        entry,
+        force=force,
+        text_files={
+            "source.html": page_html,
+            "source.md": source_markdown,
+        },
+    )
+    finalize_source_import(entry)
+    return entry
 
-    entry_dir.mkdir(parents=True, exist_ok=True)
-    write_text(entry_dir / "source.html", page_html, force=True)
-    write_text(entry_dir / "source.md", source_markdown, force=True)
-    write_text(
-        entry_dir / "meta.json",
-        json.dumps(asdict(entry), indent=2, ensure_ascii=False) + "\n",
-        force=True,
+
+def import_anthropic(url: str, slug: str | None, force: bool) -> SourceEntry:
+    paths.ensure_workspace()
+
+    normalized_url, _, _, _ = anthropic.normalize_anthropic_url(url)
+    page_html = anthropic.fetch_url(normalized_url)
+    entry = anthropic.parse_anthropic_entry(normalized_url, page_html, slug)
+    article_html = anthropic.extract_anthropic_article_html(page_html)
+    source_markdown = anthropic.convert_anthropic_html_to_markdown(
+        article_html,
+        base_url=entry.url,
+        title=entry.title,
+        description=entry.abstract,
     )
 
-    note_path = paths.SOURCE_NOTES_ROOT / f"{entry.slug}.md"
-    if not note_path.exists():
-        create_source_note(entry, force=False)
-    update_index(entry)
-    append_log_entry(entry)
+    write_standard_raw_import(
+        entry,
+        force=force,
+        text_files={
+            "source.html": page_html,
+            "source.md": source_markdown,
+        },
+    )
+    finalize_source_import(entry)
     return entry
 
 
@@ -115,13 +152,7 @@ def import_arxiv_source(
     archive_name = f"source{arxiv.archive_suffix(arxiv.filename_from_headers(headers))}"
     entry.source_archive_name = archive_name
 
-    entry_dir = paths.raw_root(entry.source_type) / entry.slug
-    if entry_dir.exists() and not force:
-        raise FileExistsError(
-            f"{entry_dir} already exists. Use --force to refresh the raw source files."
-        )
-
-    entry_dir.mkdir(parents=True, exist_ok=True)
+    entry_dir = prepare_raw_entry_dir(entry, force)
     archive_path = entry_dir / archive_name
     archive_path.write_bytes(archive_bytes)
     (entry_dir / "abs.html").write_text(page_html, encoding="utf-8", newline="\n")
@@ -147,11 +178,7 @@ def import_arxiv_source(
         force=True,
     )
 
-    note_path = paths.SOURCE_NOTES_ROOT / f"{entry.slug}.md"
-    if not note_path.exists():
-        create_source_note(entry, force=False)
-    update_index(entry)
-    append_log_entry(entry)
+    finalize_source_import(entry)
     return entry
 
 
@@ -315,6 +342,7 @@ def ingest_source_type_label(entry: SourceEntry) -> str:
         "sep": "SEP",
         "arxiv": "arXiv",
         "lesswrong": "LessWrong",
+        "anthropic": "Anthropic Interpretability",
     }.get(entry.source_type, entry.source_type)
 
 

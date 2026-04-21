@@ -77,6 +77,7 @@ Once installed, run the CLI inside a separate content repository:
 wiki init
 wiki import-sep https://plato.stanford.edu/entries/freewill/
 wiki import-lesswrong https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens
+wiki import-anthropic https://transformer-circuits.pub/2025/attribution-graphs/biology.html
 wiki import-arxiv-src https://arxiv.org/src/1706.03762
 wiki build-index
 wiki lint-wiki
@@ -95,6 +96,7 @@ Current source ingest support includes:
 
 - SEP entries via `wiki import-sep`
 - LessWrong posts via `wiki import-lesswrong`
+- Transformer Circuits / Anthropic interpretability articles via `wiki import-anthropic`
 - arXiv source bundles via `wiki import-arxiv-src`
 
 Markdown conversion is split into a small shared HTML-to-Markdown parser plus
@@ -109,11 +111,21 @@ source-specific cleanup:
 - LessWrong then normalizes inline footnote references, preserves multiline
   footnotes and footnote tables, and keeps common author-side formatting such as
   bracketed `Edit` blocks
+- Transformer Circuits / Anthropic interpretability articles reuse the shared
+  parser and strip Distill-style `<d-contents>` table-of-contents scaffolding
+  before converting the article body to Markdown
 
 LessWrong imports store immutable post artifacts under `raw/lesswrong/<slug>/`:
 
 - `meta.json` for normalized metadata including the LessWrong post ID
 - `source.html` for the fetched post HTML
+- `source.md` as generated reading Markdown intended for human reading and LLM use
+
+Anthropic interpretability imports store immutable article artifacts under
+`raw/anthropic/<slug>/`:
+
+- `meta.json` for normalized metadata including the Transformer Circuits article ID
+- `source.html` for the fetched article HTML
 - `source.md` as generated reading Markdown intended for human reading and LLM use
 
 `import-arxiv-src` stores immutable paper artifacts under `raw/arxiv/<slug>/`:

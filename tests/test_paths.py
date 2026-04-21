@@ -19,6 +19,7 @@ def test_paths_root_defaults_to_current_working_directory(
     assert tmp_path.resolve() == reloaded.ROOT
     assert tmp_path.resolve() / "raw" / "sep" == reloaded.RAW_SEP_ROOT
     assert tmp_path.resolve() / "raw" / "arxiv" == reloaded.RAW_ARXIV_ROOT
+    assert tmp_path.resolve() / "raw" / "anthropic" == reloaded.RAW_ANTHROPIC_ROOT
     assert tmp_path.resolve() / "raw" / "sep" == reloaded.RAW_ROOT
     assert tmp_path.resolve() / "wiki" == reloaded.WIKI_ROOT
 
