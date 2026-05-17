@@ -30,6 +30,11 @@ TEX_CITE_RE = re.compile(r"\\cite\w*\*?(?:\[[^\]]*\])?(?:\[[^\]]*\])?\{([^{}]+)\
 TEX_REF_RE = re.compile(r"\\(?:eqref|ref|autoref)\{([^{}]+)\}")
 TEX_LABEL_RE = re.compile(r"\\label\{([^{}]+)\}")
 TEX_BIBITEM_RE = re.compile(r"\\bibitem(?:\[[^\]]*\])?\{([^{}]+)\}")
+TEX_BIBLIOGRAPHY_RE = re.compile(r"\\bibliography\{([^{}]+)\}")
+TEX_PRINTBIBLIOGRAPHY_RE = re.compile(r"\\printbibliography\b(?:\[[^\]]*\])?")
+TEX_LATEX_ACCENT_RE = re.compile(
+    r"\{?\\(?:[\"'`^~=]\{?([A-Za-z])\}?|(?:c|u|v|H)(?![A-Za-z])\{?([A-Za-z])\}?)\}?"
+)
 TEX_SECTION_WITH_LABEL_RE = re.compile(
     r"\\(?P<name>section|subsection|subsubsection)\*?(?:\[[^\]]*\])?\{(?P<title>[^{}]+)\}\s*(?:\\label\{(?P<label>[^{}]+)\})?"
 )
@@ -350,6 +355,7 @@ def build_reading_markdown(entry: SourceEntry, entry_dir: Path) -> str:
     expanded_source = expand_tex_file(primary_path, extracted_root, set())
     custom_macros = extract_custom_macros(expanded_source)
     body = extract_document_body(expanded_source)
+    body = inline_bibliography_files(body, primary_path.parent, extracted_root)
     reference_labels = extract_reference_labels(body, custom_macros)
     rendered_body = convert_tex_to_markdown(
         body,
@@ -368,6 +374,76 @@ def build_reading_markdown(entry: SourceEntry, entry_dir: Path) -> str:
         ]
     )
     return "\n".join(lines).rstrip() + "\n"
+
+
+def inline_bibliography_files(
+    text: str, current_dir: Path, extracted_root: Path
+) -> str:
+    def replace_bibliography_command(match: re.Match[str]) -> str:
+        bibliography_names = [
+            name.strip() for name in match.group(1).split(",") if name.strip()
+        ]
+        bbl_blocks = [
+            strip_tex_comments(path.read_text(encoding="utf-8", errors="ignore"))
+            for name in bibliography_names
+            if (path := resolve_bibliography_path(name, current_dir, extracted_root))
+            is not None
+        ]
+        if not bbl_blocks:
+            fallback_bbl = find_default_bbl_file(current_dir, extracted_root)
+            if fallback_bbl:
+                return (
+                    "\n\n"
+                    + strip_tex_comments(
+                        fallback_bbl.read_text(encoding="utf-8", errors="ignore")
+                    ).strip()
+                    + "\n\n"
+                )
+            missing = ", ".join(bibliography_names) or match.group(1)
+            return f"\n\n## References\n\n[Missing bibliography: {missing}]\n\n"
+        return "\n\n" + "\n\n".join(block.strip() for block in bbl_blocks) + "\n\n"
+
+    rendered = TEX_BIBLIOGRAPHY_RE.sub(replace_bibliography_command, text)
+
+    if TEX_PRINTBIBLIOGRAPHY_RE.search(rendered):
+        fallback_bbl = find_default_bbl_file(current_dir, extracted_root)
+        replacement = (
+            "\n\n" + strip_tex_comments(
+                fallback_bbl.read_text(encoding="utf-8", errors="ignore")
+            ).strip() + "\n\n"
+            if fallback_bbl
+            else "\n\n## References\n\n[Missing bibliography]\n\n"
+        )
+        rendered = TEX_PRINTBIBLIOGRAPHY_RE.sub(replacement, rendered)
+
+    return rendered
+
+
+def resolve_bibliography_path(
+    target: str, current_dir: Path, extracted_root: Path
+) -> Path | None:
+    target_path = Path(target)
+    candidates = [target_path]
+    if not target_path.suffix:
+        candidates.append(Path(f"{target}.bbl"))
+
+    for base_dir in [current_dir, extracted_root]:
+        for candidate in candidates:
+            resolved = (base_dir / candidate).resolve()
+            if resolved.exists() and resolved.suffix.casefold() == ".bbl":
+                return resolved
+    return None
+
+
+def find_default_bbl_file(current_dir: Path, extracted_root: Path) -> Path | None:
+    candidates = [current_dir / "main.bbl", extracted_root / "main.bbl"]
+    candidates.extend(sorted(current_dir.glob("*.bbl")))
+    candidates.extend(sorted(extracted_root.glob("*.bbl")))
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved.exists():
+            return resolved
+    return None
 
 
 def expand_tex_file(path: Path, extracted_root: Path, active_paths: set[Path]) -> str:
@@ -667,8 +743,48 @@ def replace_bibliography(text: str) -> str:
         r"\\begin\{thebibliography\}\{[^{}]*\}", "\n\n## References\n\n", text
     )
     rendered = re.sub(r"\\end\{thebibliography\}", "\n", rendered)
+    rendered = replace_harvard_items(rendered)
     rendered = TEX_BIBITEM_RE.sub(lambda match: f"\n- [{match.group(1)}] ", rendered)
     return rendered
+
+
+def replace_harvard_items(text: str) -> str:
+    token = r"\harvarditem"
+    pieces: list[str] = []
+    index = 0
+
+    while index < len(text):
+        match_index = text.find(token, index)
+        if match_index == -1:
+            pieces.append(text[index:])
+            break
+
+        pieces.append(text[index:match_index])
+        cursor = match_index + len(token)
+        cursor = skip_whitespace(text, cursor)
+        if cursor < len(text) and text[cursor] == "[":
+            _, cursor = extract_balanced_content(text, cursor, "[", "]")
+
+        arguments: list[str] = []
+        success = True
+        for _ in range(3):
+            cursor = skip_whitespace(text, cursor)
+            if cursor >= len(text) or text[cursor] != "{":
+                success = False
+                break
+            argument, cursor = extract_balanced_content(text, cursor, "{", "}")
+            arguments.append(argument)
+
+        if not success:
+            pieces.append(token)
+            index = match_index + len(token)
+            continue
+
+        citation_key = cleanup_inline_tex(arguments[2])
+        pieces.append(f"\n- [{citation_key}] ")
+        index = cursor
+
+    return "".join(pieces)
 
 
 def replace_inline_commands(
@@ -761,8 +877,16 @@ def replace_double_argument_command(
 
 def cleanup_inline_tex(text: str) -> str:
     cleaned = text.strip()
+    cleaned = strip_latex_accents(cleaned)
     cleaned = cleaned.replace("``", '"')
     cleaned = cleaned.replace("''", '"')
+    cleaned = replace_old_style_text_command(cleaned, "em", "*", "*")
+    cleaned = replace_old_style_text_command(cleaned, "bf", "**", "**")
+    cleaned = re.sub(r"\{\\em\s+([^{}]+)\}", r"*\1*", cleaned)
+    cleaned = re.sub(r"\{\\bf\s+([^{}]+)\}", r"**\1**", cleaned)
+    cleaned = cleaned.replace(r"\harvardand", "and")
+    cleaned = cleaned.replace(r"\harvardyearleft", "")
+    cleaned = cleaned.replace(r"\harvardyearright", "")
     cleaned = cleaned.replace(r"\@", "")
     cleaned = re.sub(r"\\(?=\s)", "", cleaned)
     cleaned = cleaned.replace("\t", " ")
@@ -784,6 +908,14 @@ def remove_tex_commands(text: str) -> str:
     for pattern in TEX_DROP_COMMANDS:
         rendered = re.sub(pattern, "", rendered)
 
+    rendered = strip_latex_accents(rendered)
+    rendered = replace_old_style_text_command(rendered, "em", "*", "*")
+    rendered = replace_old_style_text_command(rendered, "bf", "**", "**")
+    rendered = re.sub(r"\{\\em\s+([^{}]+)\}", r"*\1*", rendered)
+    rendered = re.sub(r"\{\\bf\s+([^{}]+)\}", r"**\1**", rendered)
+    rendered = rendered.replace(r"\harvardand", "and")
+    rendered = rendered.replace(r"\harvardyearleft", "")
+    rendered = rendered.replace(r"\harvardyearright", "")
     rendered = re.sub(
         r"\\begin\{(?:center|minipage)\}(?:\[[^\]]*\])?(?:\{[^{}]*\})?", "\n", rendered
     )
@@ -797,6 +929,35 @@ def remove_tex_commands(text: str) -> str:
     rendered = rendered.replace(r"\$", "$")
     rendered = re.sub(r"\\pagebreak\b", "", rendered)
     return rendered
+
+
+def strip_latex_accents(text: str) -> str:
+    return TEX_LATEX_ACCENT_RE.sub(
+        lambda match: match.group(1) or match.group(2) or "",
+        text,
+    )
+
+
+def replace_old_style_text_command(
+    text: str, command: str, left_wrapper: str, right_wrapper: str
+) -> str:
+    token = f"{{\\{command}"
+    pieces: list[str] = []
+    index = 0
+
+    while index < len(text):
+        match_index = text.find(token, index)
+        if match_index == -1:
+            pieces.append(text[index:])
+            break
+
+        pieces.append(text[index:match_index])
+        content, next_index = extract_balanced_content(text, match_index, "{", "}")
+        inner = content[len(f"\\{command}") :].strip()
+        pieces.append(f"{left_wrapper}{inner}{right_wrapper}")
+        index = next_index
+
+    return "".join(pieces)
 
 
 def cleanup_markdown(text: str) -> str:
@@ -843,11 +1004,16 @@ def normalize_prose_line(text: str) -> str:
     normalized = normalized.replace("''", '"')
     normalized = normalized.replace(r"\@", "")
     normalized = re.sub(r"\\(?=\s)", "", normalized)
-    normalized = re.sub(
-        r"(?<![A-Za-z0-9_^\\])\{([A-Za-z0-9][A-Za-z0-9 .,+:/'\-]{0,80})\}",
-        r"\1",
-        normalized,
-    )
+    while True:
+        updated = re.sub(
+            r"(?<![A-Za-z0-9_^\\])\{([A-Za-z0-9][A-Za-z0-9 .,+:/'\-]{0,80})\}",
+            r"\1",
+            normalized,
+        )
+        if updated == normalized:
+            break
+        normalized = updated
+    normalized = re.sub(r"\s+([,.;:])", r"\1", normalized)
     return normalized.strip()
 
 

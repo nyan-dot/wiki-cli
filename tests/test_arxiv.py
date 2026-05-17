@@ -783,3 +783,114 @@ def test_build_reading_markdown_uses_primary_tex_file(tmp_path: Path) -> None:
     assert "Footnote: A note." in markdown
     assert "**Decoder:** Reads [Intro](#intro)." in markdown
     assert "Source manifest: [manifest.md](manifest.md)" in markdown
+
+
+def test_build_reading_markdown_inlines_bbl_references(tmp_path: Path) -> None:
+    entry_dir = tmp_path / "2401-03910"
+    extracted = entry_dir / "extracted"
+    extracted.mkdir(parents=True)
+    (extracted / "main.tex").write_text(
+        textwrap.dedent(
+            r"""
+            \documentclass{article}
+            \begin{document}
+            \section{Intro}
+            A claim \citep{akyurekLearningRecombineResample2020}.
+            \bibliography{main}
+            \end{document}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (extracted / "main.bbl").write_text(
+        textwrap.dedent(
+            r"""
+            \begin{thebibliography}{xx}
+
+            \harvarditem[Aky{\"u}rek et~al.]{Aky{\"u}rek, Aky{\"u}rek \harvardand\
+              Andreas}{2020}{akyurekLearningRecombineResample2020}
+            Aky{\"u}rek, E., Aky{\"u}rek, A.~F. \harvardand\ Andreas, J.  \harvardyearleft
+              2020\harvardyearright , Learning to {{Recombine}} and {{Resample Data For
+              Compositional Generalization}}, {\em in} `International {{Conference}} on
+              {{Learning Representations}}'.
+
+            \end{thebibliography}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    entry = SourceEntry(
+        source_type="arxiv",
+        slug="2401-03910",
+        title="A Philosophical Introduction to Language Models",
+        url="https://arxiv.org/abs/2401.03910",
+        authors=["Millière, Raphaël"],
+        first_published="2024/01/08",
+        pubinfo="Submitted on 8 Jan 2024",
+        fetched_at="2026-05-17T00:00:00+00:00",
+        canonical_id="2401.03910",
+        source_archive_name="source.tar.gz",
+        primary_source_path="extracted/main.tex",
+    )
+
+    markdown = build_reading_markdown(entry, entry_dir)
+
+    assert "## References" in markdown
+    assert "- [akyurekLearningRecombineResample2020]" in markdown
+    assert r"\harvarditem" not in markdown
+    assert r"\harvardyearleft" not in markdown
+    assert "Akyurek, E." in markdown
+
+
+def test_build_reading_markdown_falls_back_to_main_bbl(tmp_path: Path) -> None:
+    entry_dir = tmp_path / "2405-03207"
+    extracted = entry_dir / "extracted"
+    extracted.mkdir(parents=True)
+    (extracted / "main.tex").write_text(
+        textwrap.dedent(
+            r"""
+            \documentclass{article}
+            \begin{document}
+            Body text.
+            \bibliography{references}
+            \end{document}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (extracted / "main.bbl").write_text(
+        textwrap.dedent(
+            r"""
+            \begin{thebibliography}{xx}
+            \bibitem{fallbackKey}
+            Fallback reference with {\em Nested {{Book Title}}}.
+            \end{thebibliography}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    entry = SourceEntry(
+        source_type="arxiv",
+        slug="2405-03207",
+        title="A Philosophical Introduction to Language Models Part II",
+        url="https://arxiv.org/abs/2405.03207",
+        authors=["Millière, Raphaël"],
+        first_published="2024/05/06",
+        pubinfo="Submitted on 6 May 2024",
+        fetched_at="2026-05-17T00:00:00+00:00",
+        canonical_id="2405.03207",
+        source_archive_name="source.tar.gz",
+        primary_source_path="extracted/main.tex",
+    )
+
+    markdown = build_reading_markdown(entry, entry_dir)
+
+    assert "- [fallbackKey]" in markdown
+    assert "Fallback reference with *Nested Book Title*." in markdown
+    assert "Missing bibliography" not in markdown
