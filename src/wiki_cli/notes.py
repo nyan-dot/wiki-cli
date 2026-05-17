@@ -6,7 +6,7 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
-from . import anthropic, arxiv, lesswrong, paths, sep
+from . import anthropic, arxiv, lesswrong, paths, sep, wittgenstein
 from .indexing import build_index
 from .models import SourceEntry
 from .templates import (
@@ -182,6 +182,47 @@ def import_arxiv_source(
     return entry
 
 
+def import_wittgenstein(
+    target: str,
+    slug: str | None,
+    force: bool,
+    *,
+    unit: str = "auto",
+    start: str | None = None,
+    end: str | None = None,
+) -> SourceEntry:
+    paths.ensure_workspace()
+
+    normalized_url, _, _ = wittgenstein.normalize_wittgenstein_target(target)
+    page_html = wittgenstein.fetch_url(normalized_url)
+    entry = wittgenstein.parse_wittgenstein_entry(
+        normalized_url,
+        page_html,
+        slug=slug,
+        unit=unit,
+        start=start,
+        end=end,
+    )
+    main_html = wittgenstein.extract_wittgenstein_main_html(page_html)
+    source_markdown = wittgenstein.convert_wittgenstein_html_to_markdown(
+        main_html,
+        base_url=entry.url,
+        start=start,
+        end=end,
+    )
+
+    write_standard_raw_import(
+        entry,
+        force=force,
+        text_files={
+            "source.html": page_html,
+            "source.md": source_markdown,
+        },
+    )
+    finalize_source_import(entry)
+    return entry
+
+
 def load_entry(slug: str, *, source_type: str | None = None) -> SourceEntry:
     search_types = [source_type] if source_type else list(paths.RAW_SOURCE_ROOTS)
     meta_candidates: list[Path] = []
@@ -343,6 +384,7 @@ def ingest_source_type_label(entry: SourceEntry) -> str:
         "arxiv": "arXiv",
         "lesswrong": "LessWrong",
         "anthropic": "Anthropic Interpretability",
+        "wittgenstein": "Wittgenstein Nachlass",
     }.get(entry.source_type, entry.source_type)
 
 

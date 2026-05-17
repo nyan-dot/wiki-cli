@@ -25,6 +25,10 @@ class SourceEntry:
     canonical_id: str | None = None
     source_archive_name: str | None = None
     primary_source_path: str | None = None
+    source_unit: str | None = None
+    reference_range: str | None = None
+    edition: str | None = None
+    license_note: str | None = None
 
 
 @dataclass

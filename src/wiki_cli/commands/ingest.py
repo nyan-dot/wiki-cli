@@ -12,6 +12,7 @@ from ..notes import (
     import_arxiv_source,
     import_lesswrong,
     import_sep,
+    import_wittgenstein,
     load_entry,
     update_index,
     update_people_index,
@@ -77,6 +78,30 @@ def import_arxiv_source_command(args: argparse.Namespace) -> None:
         canonical_id=entry.canonical_id,
     )
     print(f"Imported arXiv source: {entry.title} -> raw/arxiv/{entry.slug}")
+    print(f"Seed note: wiki/sources/{entry.slug}.md")
+
+
+def import_wittgenstein_command(args: argparse.Namespace) -> None:
+    entry = import_wittgenstein(
+        args.target,
+        slug=args.slug,
+        force=args.force,
+        unit=args.unit,
+        start=args.start,
+        end=args.end,
+    )
+    log_activity(
+        "wittgenstein_imported",
+        command_name="import-wittgenstein",
+        slug=entry.slug,
+        title=entry.title,
+        url=entry.url,
+        author_count=len(entry.authors),
+        canonical_id=entry.canonical_id,
+        source_unit=entry.source_unit,
+        reference_range=entry.reference_range,
+    )
+    print(f"Imported Wittgenstein page: {entry.title} -> raw/wittgenstein/{entry.slug}")
     print(f"Seed note: wiki/sources/{entry.slug}.md")
 
 
@@ -211,6 +236,49 @@ def register_import_arxiv_source_parser(
         help="Overwrite existing raw source files for the same slug.",
     )
     import_parser.set_defaults(func=import_arxiv_source_command)
+
+
+def register_import_wittgenstein_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    import_parser = subparsers.add_parser(
+        "import-wittgenstein",
+        help=(
+            "Fetch a Wittgenstein's Writings page, optionally slice a remark "
+            "range, and seed a source note."
+        ),
+    )
+    import_parser.add_argument(
+        "target",
+        help=(
+            "Wittgenstein page URL or page ID, such as ms-175, w-oc, "
+            "or https://wittgensteinnachlass.com/ms-175/."
+        ),
+    )
+    import_parser.add_argument(
+        "--unit",
+        choices=["auto", "page", "document", "collection", "index"],
+        default="auto",
+        help="Optional unit label override. Defaults to inferring it from the page ID.",
+    )
+    import_parser.add_argument(
+        "--start",
+        help="Optional first remark section ID to include in source.md, such as 1r1.",
+    )
+    import_parser.add_argument(
+        "--end",
+        help="Optional final remark section ID to include in source.md, such as 2r2.",
+    )
+    import_parser.add_argument(
+        "--slug",
+        help="Optional slug override for the local entry directory.",
+    )
+    import_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing raw source files for the same slug.",
+    )
+    import_parser.set_defaults(func=import_wittgenstein_command)
 
 
 def register_seed_note_parser(

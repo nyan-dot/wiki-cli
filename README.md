@@ -79,6 +79,7 @@ wiki import-sep https://plato.stanford.edu/entries/freewill/
 wiki import-lesswrong https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens
 wiki import-anthropic https://transformer-circuits.pub/2025/attribution-graphs/biology.html
 wiki import-arxiv-src https://arxiv.org/src/1706.03762
+wiki import-wittgenstein ms-175 --start 1r1 --end 2r2
 wiki build-index
 wiki lint-wiki
 ```
@@ -98,6 +99,7 @@ Current source ingest support includes:
 - LessWrong posts via `wiki import-lesswrong`
 - Transformer Circuits / Anthropic interpretability articles via `wiki import-anthropic`
 - arXiv source bundles via `wiki import-arxiv-src`
+- Wittgenstein's Writings pages via `wiki import-wittgenstein`
 
 Markdown conversion is split into a small shared HTML-to-Markdown parser plus
 source-specific cleanup:
@@ -114,6 +116,9 @@ source-specific cleanup:
 - Transformer Circuits / Anthropic interpretability articles reuse the shared
   parser and strip Distill-style `<d-contents>` table-of-contents scaffolding
   before converting the article body to Markdown
+- Wittgenstein imports reuse the shared parser, strip lightbox facsimile
+  scaffolding, and can slice a page to a selected remark section range with
+  `--start` and `--end`
 
 LessWrong imports store immutable post artifacts under `raw/lesswrong/<slug>/`:
 
@@ -136,6 +141,15 @@ Anthropic interpretability imports store immutable article artifacts under
 - `extracted/` for the unpacked TeX and auxiliary files
 - `source.md` as a generated reading Markdown file derived from the primary TeX source
 - `manifest.md` as a file inventory that links into the extracted tree
+
+Wittgenstein imports store immutable page artifacts under
+`raw/wittgenstein/<slug>/`:
+
+- `meta.json` for normalized metadata including the Wittgenstein page ID, unit,
+  optional reference range, source-site note, and license note
+- `source.html` for the fetched Wittgenstein's Writings page HTML
+- `source.md` as generated reading Markdown, optionally sliced to a remark
+  range such as `--start 1r1 --end 2r2`
 
 SEP imports store immutable entry artifacts under `raw/sep/<slug>/`:
 

@@ -10,6 +10,7 @@ SOURCE_TYPE_LABELS = {
     "arxiv": "arXiv",
     "lesswrong": "LessWrong",
     "anthropic": "Anthropic Interpretability",
+    "wittgenstein": "Wittgenstein Nachlass",
 }
 
 
@@ -39,8 +40,17 @@ def render_source_note(
             "arxiv": "arXiv ID",
             "lesswrong": "LessWrong post ID",
             "anthropic": "Transformer Circuits article ID",
+            "wittgenstein": "Wittgenstein page ID",
         }.get(entry.source_type, "Canonical ID")
         extra_snapshot_lines.append(f"- {canonical_id_label}: {entry.canonical_id}")
+    if entry.source_unit:
+        extra_snapshot_lines.append(f"- Source unit: {entry.source_unit}")
+    if entry.reference_range:
+        extra_snapshot_lines.append(f"- Reference range: {entry.reference_range}")
+    if entry.edition:
+        extra_snapshot_lines.append(f"- Edition or source site: {entry.edition}")
+    if entry.license_note:
+        extra_snapshot_lines.append(f"- License note: {entry.license_note}")
     if source_archive_path:
         extra_snapshot_lines.append(
             f"- Source archive: [{source_archive_path}]({source_archive_path})"

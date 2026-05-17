@@ -14,6 +14,9 @@ def isolated_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setattr(paths, "RAW_ARXIV_ROOT", tmp_path / "raw" / "arxiv")
     monkeypatch.setattr(paths, "RAW_LESSWRONG_ROOT", tmp_path / "raw" / "lesswrong")
     monkeypatch.setattr(paths, "RAW_ANTHROPIC_ROOT", tmp_path / "raw" / "anthropic")
+    monkeypatch.setattr(
+        paths, "RAW_WITTGENSTEIN_ROOT", tmp_path / "raw" / "wittgenstein"
+    )
     monkeypatch.setattr(paths, "RAW_ROOT", tmp_path / "raw" / "sep")
     monkeypatch.setattr(
         paths,
@@ -23,6 +26,7 @@ def isolated_workspace(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
             "arxiv": tmp_path / "raw" / "arxiv",
             "lesswrong": tmp_path / "raw" / "lesswrong",
             "anthropic": tmp_path / "raw" / "anthropic",
+            "wittgenstein": tmp_path / "raw" / "wittgenstein",
         },
     )
     monkeypatch.setattr(paths, "WIKI_ROOT", tmp_path / "wiki")

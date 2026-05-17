@@ -16,12 +16,14 @@ RAW_SEP_ROOT = ROOT / "raw" / "sep"
 RAW_ARXIV_ROOT = ROOT / "raw" / "arxiv"
 RAW_LESSWRONG_ROOT = ROOT / "raw" / "lesswrong"
 RAW_ANTHROPIC_ROOT = ROOT / "raw" / "anthropic"
+RAW_WITTGENSTEIN_ROOT = ROOT / "raw" / "wittgenstein"
 RAW_ROOT = RAW_SEP_ROOT
 RAW_SOURCE_ROOTS = {
     "sep": RAW_SEP_ROOT,
     "arxiv": RAW_ARXIV_ROOT,
     "lesswrong": RAW_LESSWRONG_ROOT,
     "anthropic": RAW_ANTHROPIC_ROOT,
+    "wittgenstein": RAW_WITTGENSTEIN_ROOT,
 }
 WIKI_ROOT = ROOT / "wiki"
 SOURCE_NOTES_ROOT = WIKI_ROOT / "sources"
@@ -48,6 +50,7 @@ def ensure_workspace() -> None:
         RAW_ARXIV_ROOT,
         RAW_LESSWRONG_ROOT,
         RAW_ANTHROPIC_ROOT,
+        RAW_WITTGENSTEIN_ROOT,
         SOURCE_NOTES_ROOT,
         WIKI_ROOT / "concepts",
         WIKI_ROOT / "people",
